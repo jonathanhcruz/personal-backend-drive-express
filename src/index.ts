@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { errorMiddleware } from './shared/middlewares/error.middleware';
 import authRoutes from './modules/auth/http/auth.routes';
