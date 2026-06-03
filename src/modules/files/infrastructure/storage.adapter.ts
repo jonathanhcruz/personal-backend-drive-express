@@ -1,17 +1,23 @@
+import { createReadStream } from 'fs';
+import { unlink } from 'fs/promises';
+import { createHash } from 'crypto';
+
 export class StorageAdapter {
-  async write(_path: string, _buffer: Buffer): Promise<void> {
-    throw new Error('not implemented');
+  checksum(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = createHash('sha256');
+      const stream = createReadStream(filePath);
+      stream.on('data', (chunk) => hash.update(chunk));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', reject);
+    });
   }
 
-  async read(_path: string): Promise<Buffer> {
-    throw new Error('not implemented');
+  async remove(filePath: string): Promise<void> {
+    await unlink(filePath).catch(() => undefined);
   }
 
-  async remove(_path: string): Promise<void> {
-    throw new Error('not implemented');
-  }
-
-  buildPath(_fileId: string, _filename: string): string {
+  async read(_filePath: string): Promise<Buffer> {
     throw new Error('not implemented');
   }
 }

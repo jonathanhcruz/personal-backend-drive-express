@@ -15,7 +15,7 @@ export interface UploadFileDto {
   name: string;
   mimeType: string;
   size: number;
-  buffer: Buffer;
+  storagePath: string;
   folderId: string | null;
   uploadedBy: string;
 }

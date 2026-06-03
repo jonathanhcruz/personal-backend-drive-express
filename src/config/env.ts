@@ -6,7 +6,7 @@ export const env = {
   jwtExpiresIn: process.env['JWT_EXPIRES_IN'] ?? '15m',
   refreshExpiresIn: process.env['REFRESH_EXPIRES_IN'] ?? '7d',
   databaseUrl: process.env['DATABASE_URL'] ?? '',
-  storagePath: process.env['STORAGE_PATH'] ?? '/mnt/storage',
+  storagePath: process.env['STORAGE_PATH'] ?? '/mnt/jonathan/test',
   maxFileSizeMb: Number(process.env['MAX_FILE_SIZE_MB'] ?? '100'),
   allowedMimeTypes: (process.env['ALLOWED_MIME_TYPES'] ?? '').split(',').filter(Boolean),
 };

@@ -1,8 +1,29 @@
+import { randomUUID } from 'crypto';
 import type { FileRecord, UploadFileDto, FileListFilter } from './files.types';
+import type { StorageAdapter } from '../infrastructure/storage.adapter';
 
 export class FilesService {
-  async upload(_dto: UploadFileDto): Promise<FileRecord> {
-    throw new Error('not implemented');
+  constructor(private readonly storage: StorageAdapter) {}
+
+  async upload(dto: UploadFileDto): Promise<FileRecord> {
+    try {
+      const checksum = await this.storage.checksum(dto.storagePath);
+      return {
+        id: randomUUID(),
+        name: dto.name,
+        mimeType: dto.mimeType,
+        size: dto.size,
+        checksum,
+        storagePath: dto.storagePath,
+        folderId: dto.folderId,
+        uploadedBy: dto.uploadedBy,
+        deletedAt: null,
+        createdAt: new Date(),
+      };
+    } catch (err) {
+      await this.storage.remove(dto.storagePath);
+      throw err;
+    }
   }
 
   async list(_filter: FileListFilter): Promise<FileRecord[]> {
