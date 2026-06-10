@@ -2,20 +2,20 @@
 
 ## Endpoints por módulo
 
-### Auth (`/api/auth`)
+### Auth (`/api/auth`) ✅ Implementado
 | Método | Ruta | Descripción | Auth requerida |
 |--------|------|-------------|----------------|
-| POST | `/login` | Login con usuario + contraseña | No |
-| POST | `/refresh` | Renovar access token con refresh token | No |
-| POST | `/logout` | Invalida el refresh token activo | Sí |
+| POST | `/login` | Login con email + contraseña → `{ accessToken, refreshToken }` | No |
+| POST | `/refresh` | Renueva token pair, invalida el anterior (rotación) | No |
+| POST | `/logout` | Revoca el refresh token activo → mensaje de confirmación | No |
+
+**Logout responses:**
+- `200` `{ "data": { "message": "Session closed successfully" } }` — token revocado
+- `400` `{ "error": { "code": "VALIDATION_ERROR", "message": "Invalid or missing refresh token" } }` — token inválido, expirado o ya revocado
 
 ### Users (`/api/users`)
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| GET | `/` | Listar usuarios | admin |
-| POST | `/` | Crear usuario | admin |
-| PATCH | `/:id` | Actualizar usuario | admin |
-| DELETE | `/:id` | Desactivar usuario (borrado lógico) | admin |
+Rutas desactivadas — usuario único gestionado directamente en la BD.
+No hay endpoint de registro ni gestión de usuarios desde la API.
 
 ### Files (`/api/files`)
 | Método | Ruta | Descripción | Auth requerida |
