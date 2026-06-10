@@ -1,19 +1,29 @@
+import { ConflictError, NotFoundError } from '../../../shared/errors/http.errors';
 import type { User, CreateUserDto, UpdateUserDto } from './users.types';
+import type { UsersRepository } from '../infrastructure/users.repository';
 
 export class UsersService {
+  constructor(private readonly repo: UsersRepository) {}
+
   async findAll(): Promise<User[]> {
-    throw new Error('not implemented');
+    return this.repo.findAll();
   }
 
-  async create(_dto: CreateUserDto): Promise<User> {
-    throw new Error('not implemented');
+  async create(dto: CreateUserDto): Promise<User> {
+    const existing = await this.repo.findByEmail(dto.email);
+    if (existing) throw new ConflictError(`Email ${dto.email} already registered`);
+    return this.repo.create(dto);
   }
 
-  async update(_id: string, _dto: UpdateUserDto): Promise<User> {
-    throw new Error('not implemented');
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    const user = await this.repo.findById(id);
+    if (!user) throw new NotFoundError('User not found');
+    return this.repo.update(id, dto);
   }
 
-  async deactivate(_id: string): Promise<void> {
-    throw new Error('not implemented');
+  async deactivate(id: string): Promise<void> {
+    const user = await this.repo.findById(id);
+    if (!user) throw new NotFoundError('User not found');
+    await this.repo.deactivate(id);
   }
 }

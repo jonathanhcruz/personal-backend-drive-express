@@ -1,4 +1,7 @@
-// TODO Phase 3: initialize pg.Pool with env.databaseUrl
-export const query = (_text: string, _params?: unknown[]): never => {
-  throw new Error('Database not initialized — implement in Phase 3');
-};
+import { Pool } from 'pg';
+import { env } from './env';
+
+export const pool = new Pool({ connectionString: env.databaseUrl });
+
+export const query = <T extends object>(text: string, params?: unknown[]) =>
+  pool.query<T>(text, params);

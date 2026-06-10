@@ -1,13 +1,13 @@
-export type UserRole = 'admin' | 'readonly';
+export type UserRole = 'admin' | 'user';
 
 export interface AuthUser {
   id: string;
-  username: string;
+  email: string;
   role: UserRole;
 }
 
 export interface LoginDto {
-  username: string;
+  email: string;
   password: string;
 }
 

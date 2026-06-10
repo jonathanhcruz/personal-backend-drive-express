@@ -1,15 +1,23 @@
+import jwt from 'jsonwebtoken';
+import { env } from '../../../config/env';
 import type { AuthUser } from '../domain/auth.types';
 
 export class JwtAdapter {
-  signAccessToken(_payload: AuthUser): string {
-    throw new Error('not implemented');
+  signAccessToken(payload: AuthUser): string {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return jwt.sign(payload as object, env.jwtSecret, { expiresIn: env.jwtExpiresIn } as any);
   }
 
-  signRefreshToken(_userId: string): string {
-    throw new Error('not implemented');
+  signRefreshToken(userId: string): string {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: env.refreshExpiresIn } as any);
   }
 
-  verifyAccessToken(_token: string): AuthUser {
-    throw new Error('not implemented');
+  verifyAccessToken(token: string): AuthUser {
+    return jwt.verify(token, env.jwtSecret) as AuthUser;
+  }
+
+  verifyRefreshToken(token: string): { sub: string } {
+    return jwt.verify(token, env.jwtSecret) as { sub: string };
   }
 }

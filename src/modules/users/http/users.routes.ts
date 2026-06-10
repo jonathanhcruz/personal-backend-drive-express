@@ -1,12 +1,17 @@
 import { Router } from 'express';
-import { UsersController } from './users.controller';
+// import { UsersController } from './users.controller';
+// import { UsersService } from '../domain/users.service';
+// import { UsersRepository } from '../infrastructure/users.repository';
+
+// const repo = new UsersRepository();
+// const service = new UsersService(repo);
+// const ctrl = new UsersController(service);
 
 const router = Router();
-const ctrl = new UsersController();
 
-router.get('/', (req, res) => ctrl.findAll(req, res));
-router.post('/', (req, res) => ctrl.create(req, res));
-router.patch('/:id', (req, res) => ctrl.update(req, res));
-router.delete('/:id', (req, res) => ctrl.deactivate(req, res));
+// router.get('/', (req, res, next) => ctrl.findAll(req, res).catch(next));
+// router.post('/', (req, res, next) => ctrl.create(req, res).catch(next));
+// router.patch('/:id', (req, res, next) => ctrl.update(req, res).catch(next));
+// router.delete('/:id', (req, res, next) => ctrl.deactivate(req, res).catch(next));
 
 export default router;
