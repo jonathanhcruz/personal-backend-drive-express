@@ -1,4 +1,6 @@
 import type { FoldersRepository } from '../infrastructure/folders.repository';
+import type { StorageAdapter } from '../../files/infrastructure/storage.adapter';
+import { NotFoundError, ForbiddenError, ConflictError } from '../../../shared/errors/http.errors';
 import type {
   Folder,
   FolderContents,
@@ -8,30 +10,66 @@ import type {
 } from './folders.types';
 
 export class FoldersService {
-  constructor(private readonly repo: FoldersRepository) {}
+  constructor(
+    private readonly repo: FoldersRepository,
+    private readonly storage: StorageAdapter,
+  ) {}
 
-  async listRoot(_ownerId: string): Promise<Folder[]> {
-    void this.repo;
-    throw new Error('not implemented');
+  async listRoot(ownerId: string): Promise<Folder[]> {
+    return this.repo.findRootByOwner(ownerId);
   }
 
-  async getContents(_id: string, _ownerId: string): Promise<FolderContents> {
-    throw new Error('not implemented');
+  async getContents(id: string, ownerId: string): Promise<FolderContents> {
+    const folder = await this.repo.findById(id);
+    if (!folder) throw new NotFoundError('Folder not found');
+    if (folder.ownerId !== ownerId) throw new ForbiddenError();
+    return this.repo.getContents(id);
   }
 
-  async getBreadcrumb(_id: string, _ownerId: string): Promise<BreadcrumbItem[]> {
-    throw new Error('not implemented');
+  async getBreadcrumb(id: string, ownerId: string): Promise<BreadcrumbItem[]> {
+    const folder = await this.repo.findById(id);
+    if (!folder) throw new NotFoundError('Folder not found');
+    if (folder.ownerId !== ownerId) throw new ForbiddenError();
+    return this.repo.getBreadcrumb(id);
   }
 
-  async create(_ownerId: string, _dto: CreateFolderDto): Promise<Folder> {
-    throw new Error('not implemented');
+  async create(ownerId: string, dto: CreateFolderDto): Promise<Folder> {
+    if (dto.parentId === null) {
+      const roots = await this.repo.findRootByOwner(ownerId);
+      if (roots.length > 0) throw new ConflictError('A root folder already exists for this user');
+    } else {
+      const parent = await this.repo.findById(dto.parentId);
+      if (!parent) throw new NotFoundError('Parent folder not found');
+      if (parent.ownerId !== ownerId) throw new ForbiddenError();
+    }
+
+    const folder = await this.repo.create(ownerId, dto);
+    try {
+      await this.storage.createFolderDir(ownerId, folder.id);
+    } catch (err) {
+      await this.repo.remove(folder.id);
+      throw err;
+    }
+    return folder;
   }
 
-  async rename(_id: string, _ownerId: string, _dto: UpdateFolderDto): Promise<Folder> {
-    throw new Error('not implemented');
+  async rename(id: string, ownerId: string, dto: UpdateFolderDto): Promise<Folder> {
+    const folder = await this.repo.findById(id);
+    if (!folder) throw new NotFoundError('Folder not found');
+    if (folder.ownerId !== ownerId) throw new ForbiddenError();
+    return this.repo.rename(id, dto);
   }
 
-  async remove(_id: string, _ownerId: string, _recursive: boolean): Promise<void> {
-    throw new Error('not implemented');
+  async remove(id: string, ownerId: string, recursive: boolean): Promise<void> {
+    const folder = await this.repo.findById(id);
+    if (!folder) throw new NotFoundError('Folder not found');
+    if (folder.ownerId !== ownerId) throw new ForbiddenError();
+    if (!recursive) {
+      const children = await this.repo.findChildren(id);
+      if (children.length > 0) {
+        throw new ConflictError('Folder is not empty. Use ?recursive=true to delete all contents.');
+      }
+    }
+    await this.repo.remove(id);
   }
 }

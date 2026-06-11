@@ -26,6 +26,8 @@ export interface BreadcrumbItem {
   name: string;
 }
 
+export type FolderPublicDto = Omit<Folder, 'ownerId'>;
+
 export interface CreateFolderDto {
   name: string;
   parentId: string | null;

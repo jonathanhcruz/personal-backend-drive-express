@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { FoldersController } from './folders.controller';
 import { FoldersService } from '../domain/folders.service';
 import { FoldersRepository } from '../infrastructure/folders.repository';
+import { StorageAdapter } from '../../files/infrastructure/storage.adapter';
 import { authMiddleware } from '../../../shared/middlewares/auth.middleware';
+import { pool } from '../../../config/database';
 
-const repo = new FoldersRepository();
-const service = new FoldersService(repo);
+const repo = new FoldersRepository(pool);
+const storage = new StorageAdapter();
+const service = new FoldersService(repo, storage);
 const ctrl = new FoldersController(service);
 
 const router = Router();

@@ -26,4 +26,13 @@ export class StorageAdapter {
   async ensureUserDir(userId: string): Promise<void> {
     await mkdir(path.join(env.storagePath, userId), { recursive: true });
   }
+
+  async createFolderDir(ownerId: string, folderId: string): Promise<void> {
+    await mkdir(path.join(env.storagePath, ownerId, folderId), { recursive: true });
+  }
+
+  async removeFolderDir(ownerId: string, folderId: string): Promise<void> {
+    const { rm } = await import('fs/promises');
+    await rm(path.join(env.storagePath, ownerId, folderId), { recursive: true, force: true });
+  }
 }
