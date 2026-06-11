@@ -1,6 +1,8 @@
 import { createReadStream } from 'fs';
-import { unlink } from 'fs/promises';
+import { mkdir, unlink } from 'fs/promises';
 import { createHash } from 'crypto';
+import path from 'path';
+import { env } from '../../../config/env';
 
 export class StorageAdapter {
   checksum(filePath: string): Promise<string> {
@@ -19,5 +21,9 @@ export class StorageAdapter {
 
   async read(_filePath: string): Promise<Buffer> {
     throw new Error('not implemented');
+  }
+
+  async ensureUserDir(userId: string): Promise<void> {
+    await mkdir(path.join(env.storagePath, userId), { recursive: true });
   }
 }
