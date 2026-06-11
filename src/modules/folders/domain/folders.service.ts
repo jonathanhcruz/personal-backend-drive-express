@@ -43,6 +43,9 @@ export class FoldersService {
       if (parent.ownerId !== ownerId) throw new ForbiddenError();
     }
 
+    const existing = await this.repo.findByNameAndParent(dto.name, dto.parentId, ownerId);
+    if (existing) throw new ConflictError(`A folder named "${dto.name}" already exists here`);
+
     const folder = await this.repo.create(ownerId, dto);
     try {
       await this.storage.createFolderDir(ownerId, folder.id);
@@ -70,6 +73,9 @@ export class FoldersService {
         throw new ConflictError('Folder is not empty. Use ?recursive=true to delete all contents.');
       }
     }
+
+    const descendantIds = await this.repo.findAllDescendantIds(id);
     await this.repo.remove(id);
+    await Promise.all(descendantIds.map((fid) => this.storage.removeFolderDir(ownerId, fid)));
   }
 }

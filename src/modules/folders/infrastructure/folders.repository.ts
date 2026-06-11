@@ -89,6 +89,15 @@ export class FoldersRepository {
     return result.rows;
   }
 
+  async findByNameAndParent(name: string, parentId: string | null, ownerId: string): Promise<Folder | null> {
+    const result = await this.db.query<FolderRow>(
+      `SELECT * FROM folders
+       WHERE name = $1 AND owner_id = $2 AND parent_id IS NOT DISTINCT FROM $3`,
+      [name, ownerId, parentId],
+    );
+    return result.rows[0] ? toFolder(result.rows[0]) : null;
+  }
+
   async create(ownerId: string, dto: CreateFolderDto): Promise<Folder> {
     const result = await this.db.query<FolderRow>(
       `INSERT INTO folders (name, parent_id, owner_id)
@@ -105,6 +114,20 @@ export class FoldersRepository {
       [dto.name, id],
     );
     return toFolder(result.rows[0]!);
+  }
+
+  async findAllDescendantIds(folderId: string): Promise<string[]> {
+    const result = await this.db.query<{ id: string }>(
+      `WITH RECURSIVE descendants AS (
+        SELECT id FROM folders WHERE id = $1
+        UNION ALL
+        SELECT f.id FROM folders f
+        INNER JOIN descendants d ON f.parent_id = d.id
+      )
+      SELECT id FROM descendants`,
+      [folderId],
+    );
+    return result.rows.map((r) => r.id);
   }
 
   async remove(id: string): Promise<void> {
