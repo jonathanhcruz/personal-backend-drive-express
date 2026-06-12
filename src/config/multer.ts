@@ -1,14 +1,20 @@
 import multer from 'multer';
 import { mkdirSync } from 'fs';
+import { extname } from 'path';
+import { randomUUID } from 'crypto';
 import { env } from './env';
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    mkdirSync(env.storagePath, { recursive: true });
-    cb(null, env.storagePath);
+  destination: (req, _file, cb) => {
+    const userId = (req as Express.Request).user!.id;
+    const folderId = req.query['folderId'] as string;
+    const dest = `${env.storagePath}/${userId}/${folderId}`;
+    mkdirSync(dest, { recursive: true });
+    cb(null, dest);
   },
   filename: (_req, file, cb) => {
-    cb(null, file.originalname);
+    const ext = extname(file.originalname);
+    cb(null, `${randomUUID()}${ext}`);
   },
 });
 
