@@ -16,8 +16,6 @@ export const upload = multer({
   storage,
   limits: { fileSize: env.maxFileSizeMb * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    console.log('file', file);
-    
     if (env.allowedMimeTypes.length === 0 || env.allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {

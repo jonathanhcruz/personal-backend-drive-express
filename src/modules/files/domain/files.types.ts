@@ -16,8 +16,7 @@ export interface UploadFileDto {
   mimeType: string;
   size: number;
   storagePath: string;
-  folderId: string | null;
-  uploadedBy: string;
+  folderId: string;
 }
 
 export interface FileListFilter {
@@ -25,3 +24,5 @@ export interface FileListFilter {
   uploadedBy?: string;
   includeDeleted?: boolean;
 }
+
+export type FilePublicDto = Omit<FileRecord, 'storagePath'>;

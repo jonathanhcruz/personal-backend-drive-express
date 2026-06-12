@@ -1,19 +1,38 @@
 import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { FilesController } from './files.controller';
 import { FilesService } from '../domain/files.service';
+import { FilesRepository } from '../infrastructure/files.repository';
+import { FoldersRepository } from '../../folders/infrastructure/folders.repository';
 import { StorageAdapter } from '../infrastructure/storage.adapter';
+import { authMiddleware } from '../../../shared/middlewares/auth.middleware';
+import { ValidationError } from '../../../shared/errors/http.errors';
 import { upload } from '../../../config/multer';
+import { pool } from '../../../config/database';
 
+function requireFolderIdQuery(req: Request, _res: Response, next: NextFunction): void {
+  const result = z.uuid().safeParse(req.query['folderId']);
+  if (!result.success) {
+    next(new ValidationError('folderId query param is required and must be a valid UUID'));
+    return;
+  }
+  next();
+}
+
+const repo = new FilesRepository(pool);
 const storage = new StorageAdapter();
-const service = new FilesService(storage);
+const foldersRepo = new FoldersRepository(pool);
+const service = new FilesService(repo, storage, foldersRepo);
 const ctrl = new FilesController(service);
 
 const router = Router();
 
-router.post('/upload', upload.single('file'), (req, res) => ctrl.upload(req, res));
-router.get('/', (req, res) => ctrl.list(req, res));
-router.get('/:id/download', (req, res) => ctrl.download(req, res));
-router.delete('/:id', (req, res) => ctrl.softDelete(req, res));
-router.delete('/:id/hard', (req, res) => ctrl.hardDelete(req, res));
+router.use(authMiddleware);
+
+router.post('/upload', requireFolderIdQuery, upload.single('file'), (req, res, next) => ctrl.upload(req, res).catch(next));
+router.get('/', (req, res, next) => ctrl.listByFolder(req, res).catch(next));
+router.get('/:id', (req, res, next) => ctrl.getById(req, res).catch(next));
+router.delete('/:id', (req, res, next) => ctrl.remove(req, res).catch(next));
 
 export default router;

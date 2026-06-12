@@ -1,6 +1,9 @@
-import type { Request, Response, NextFunction } from 'express';
+import { rateLimit } from 'express-rate-limit';
 
-// TODO Phase 2: replace with express-rate-limit (10 req / 15 min on /api/auth/login)
-export function rateLimitMiddleware(_req: Request, _res: Response, next: NextFunction): void {
-  next();
-}
+export const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests, please try again later' } },
+});

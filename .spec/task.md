@@ -37,6 +37,10 @@ _Nada en progreso actualmente._
 
 ## Pendiente importante — NO olvidar
 
+- [ ] **`StorageAdapter.read(filePath)`** — implementar lectura de archivo del disco (necesario para download)
+
+
+
 - [ ] **Migración**: cambiar `files.folder_id` de `ON DELETE SET NULL` a `ON DELETE CASCADE`
   - Cuando se borra una carpeta, todos sus archivos deben borrarse en BD (cascade) y en disco
   - El `FoldersService.remove` debe recoger los `storage_path` de los archivos antes de borrar,

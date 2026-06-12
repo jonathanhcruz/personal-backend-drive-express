@@ -1,5 +1,22 @@
+/// <reference path="../../../shared/types/express.d.ts" />
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import type { FilesService } from '../domain/files.service';
+import type { FileRecord, FilePublicDto } from '../domain/files.types';
+import { ValidationError } from '../../../shared/errors/http.errors';
+
+const uuidSchema = z.uuid();
+
+function parseUuid(value: unknown): string {
+  const result = uuidSchema.safeParse(value);
+  if (!result.success) throw new ValidationError('Invalid file ID');
+  return result.data;
+}
+
+function toPublic(file: FileRecord): FilePublicDto {
+  const { storagePath: _omit, ...rest } = file;
+  return rest;
+}
 
 export class FilesController {
   constructor(private readonly service: FilesService) {}
@@ -11,33 +28,33 @@ export class FilesController {
       return;
     }
 
-    const folderId = typeof req.body?.folderId === 'string' ? req.body.folderId : null;
-
-    const record = await this.service.upload({
+    const record = await this.service.upload(req.user!.id, {
       name: file.originalname,
       mimeType: file.mimetype,
       size: file.size,
       storagePath: file.path,
-      folderId,
-      uploadedBy: 'anonymous',
+      folderId: req.query['folderId'] as string,
     });
 
-    res.status(201).json({ data: record });
+    res.status(201).json({ data: toPublic(record) });
   }
 
-  list(_req: Request, res: Response): void {
-    res.status(501).json({ error: { code: 'NOT_IMPLEMENTED', message: 'not implemented' } });
+  async getById(req: Request, res: Response): Promise<void> {
+    const id = parseUuid(req.params['id']);
+    const file = await this.service.getById(id, req.user!.id);
+    res.json({ data: toPublic(file) });
   }
 
-  download(_req: Request, res: Response): void {
-    res.status(501).json({ error: { code: 'NOT_IMPLEMENTED', message: 'not implemented' } });
+  async listByFolder(req: Request, res: Response): Promise<void> {
+    const folderId = req.query['folderId'];
+    const resolvedFolderId = typeof folderId === 'string' ? folderId : null;
+    const files = await this.service.listByFolder(resolvedFolderId, req.user!.id);
+    res.json({ data: files.map(toPublic) });
   }
 
-  softDelete(_req: Request, res: Response): void {
-    res.status(501).json({ error: { code: 'NOT_IMPLEMENTED', message: 'not implemented' } });
-  }
-
-  hardDelete(_req: Request, res: Response): void {
-    res.status(501).json({ error: { code: 'NOT_IMPLEMENTED', message: 'not implemented' } });
+  async remove(req: Request, res: Response): Promise<void> {
+    const id = parseUuid(req.params['id']);
+    await this.service.remove(id, req.user!.id);
+    res.status(204).send();
   }
 }
