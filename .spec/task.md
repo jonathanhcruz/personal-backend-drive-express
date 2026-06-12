@@ -34,4 +34,14 @@ _Nada en progreso actualmente._
 - [x] Rutas de users comentadas — usuario único gestionado directamente en BD
 
 ---
+
+## Pendiente importante — NO olvidar
+
+- [ ] **Migración**: cambiar `files.folder_id` de `ON DELETE SET NULL` a `ON DELETE CASCADE`
+  - Cuando se borra una carpeta, todos sus archivos deben borrarse en BD (cascade) y en disco
+  - El `FoldersService.remove` debe recoger los `storage_path` de los archivos antes de borrar,
+    luego borrar la carpeta (cascade limpia BD) y finalmente eliminar los archivos del disco
+  - Sin este cambio, borrar una carpeta deja archivos huérfanos en disco
+
+---
 _Actualizar al iniciar o terminar cualquier tarea._
