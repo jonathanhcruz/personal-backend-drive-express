@@ -1,19 +1,17 @@
-# Plan — Feature: Folders
+# Plan — Feature: Folders ✅ Completado
 
 ## Fases
 
 | # | Fase | Descripción | Estado |
 |---|------|-------------|--------|
-| 1 | Base de datos | Tabla `folders` + carpeta raíz en disco y seed en BD | Pendiente |
-| 2 | Endpoints CRUD | Crear, listar contenido, eliminar — ownership inline | Pendiente |
-| 3 | Vincular archivos | `folder_id` en upload, tabla `files` en BD | Pendiente |
-| 4 | Breadcrumb | Ruta jerárquica hacia arriba desde un `folder_id` | Pendiente |
-
-> Ownership validation va inline en cada endpoint desde el día uno — no como fase separada.
+| 1 | Base de datos | Tabla `folders` + migración | ✅ Completado |
+| 2 | CRUD endpoints | Crear, listar, renombrar, eliminar | ✅ Completado |
+| 3 | Vincular archivos | `folder_id` en tabla `files` | ✅ Completado |
+| 4 | Breadcrumb | CTE recursiva en PostgreSQL | ✅ Completado |
 
 ---
 
-## Fase 1 — Base de datos
+## Fase 1 — Base de datos ✅
 
 ### Tabla `folders`
 ```sql
@@ -27,69 +25,50 @@ CREATE TABLE folders (
 );
 ```
 - `parent_id NULL` → carpeta raíz del usuario
-- `ON DELETE CASCADE` → eliminar carpeta padre elimina todo el subárbol en BD
-
-### Carpeta raíz
-- Se crea en BD y en disco en la migración/seed inicial (usuario único admin)
-- Path en disco: `{STORAGE_PATH}/{userId}/` — nunca expuesto al cliente
-- Si el directorio no existe en disco al momento de usarse → se crea automáticamente (lazy creation)
+- `ON DELETE CASCADE` → eliminar carpeta padre limpia todo el subárbol en BD
 
 ---
 
-## Fase 2 — Endpoints CRUD
+## Fase 2 — CRUD endpoints ✅
 
-### Crear carpeta
-- Recibe `name` + `parentId`
-- Valida que `parentId` pertenece al usuario autenticado
-- Si `parentId` es null → crea en raíz del usuario
-- Crea directorio en disco bajo la ruta del padre
-- Inserta fila en BD
-- Si falla en disco → no inserta en BD
+- `FoldersRepository` — findById, findRootByOwner, findChildrenWithFiles, create, rename, delete
+- `FoldersService` — ownership check en cada operación, lógica de delete recursivo
+- `FoldersController` — validación zod, `parseUuid` con error tipado
 
-### Listar contenido
-- Recibe `folderId`
-- Valida ownership del folder
-- Devuelve subcarpetas + archivos dentro (metadata, nunca paths reales)
-
-### Eliminar carpeta
-- Recibe `folderId`
-- Valida ownership
-- Dos modos: vacía (error si tiene contenido) o recursiva (elimina todo)
-- Elimina en disco primero, luego en BD
-- `ON DELETE CASCADE` en BD maneja el subárbol automáticamente
+### Delete recursivo
+1. Obtiene todos los archivos del subárbol via `FoldersRepository`
+2. Borra cada archivo del disco (`StorageAdapter.remove`)
+3. Borra la carpeta en BD → CASCADE elimina subcarpetas y filas de `files`
 
 ---
 
-## Fase 3 — Vincular archivos
+## Fase 3 — Vincular archivos ✅
 
-- Upload recibe `folderId` opcional (null → carpeta raíz)
-- Valida que `folderId` pertenece al usuario autenticado
-- Archivo se guarda en disco bajo la ruta de la carpeta
-- Si upload a disco OK → inserta fila en tabla `files` con `folder_id`
-- Coordinado con feature `files` Fase 1
+- Upload de archivo acepta `folderId` en query param
+- `FilesService.upload` valida que `folderId` existe y pertenece al usuario
+- Archivo guardado en disco bajo `{STORAGE_PATH}/{userId}/{folderId}/`
 
 ---
 
-## Fase 4 — Breadcrumb
+## Fase 4 — Breadcrumb ✅
 
-Query recursiva con CTE en PostgreSQL:
+CTE recursiva:
 ```sql
 WITH RECURSIVE breadcrumb AS (
-  SELECT id, name, parent_id FROM folders WHERE id = $1
+  SELECT id, name, parent_id FROM folders WHERE id = $1 AND owner_id = $2
   UNION ALL
   SELECT f.id, f.name, f.parent_id FROM folders f
   JOIN breadcrumb b ON f.id = b.parent_id
 )
-SELECT * FROM breadcrumb;
+SELECT id, name FROM breadcrumb;
 ```
-- Retorna lista ordenada desde raíz hasta carpeta actual
-- El cliente usa esto para mostrar navegación tipo `Raíz > Documentos > Trabajo`
+Retorna lista desde la carpeta actual hasta la raíz; el service la invierte para mostrar raíz→actual.
 
 ---
 
 ## Decisiones técnicas
 
-- El cliente nunca ve el path real en disco — solo trabaja con IDs
-- Rutas en la API: `GET /api/folders/:id` — ID, nunca path
+- El cliente trabaja solo con IDs — nunca ve paths en disco
 - Ownership check en cada operación: `WHERE owner_id = :userId`
-- Disco y BD se mantienen sincronizados: primero disco, luego BD
+- Delete recursivo: disco primero, BD después — fallo en disco no deja BD inconsistente
+- Respuesta `204` en delete (no `200` con mensaje)

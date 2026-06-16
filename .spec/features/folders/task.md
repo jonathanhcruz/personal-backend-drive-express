@@ -1,34 +1,32 @@
-# Tasks — Feature: Folders
+# Tasks — Feature: Folders ✅ Completado
 
 ## Pendiente
-
-### Fase 1 — Base de datos
-- [ ] Migración: tabla `folders` con `id`, `name`, `parent_id`, `owner_id`, `timestamps`
-- [ ] Seed: carpeta raíz del usuario admin en BD
-- [ ] Crear directorio raíz en disco `{STORAGE_PATH}/{userId}/`
-
-### Fase 2 — Endpoints CRUD
-- [ ] `FoldersRepository` — `findById`, `findRootByOwner`, `findChildren`, `create`, `rename`, `delete`
-- [ ] `FoldersService` — lógica de negocio + validación de ownership
-- [ ] `FoldersController` — validación zod, contrato `{ data }` / `{ error }`
-- [ ] `GET /api/folders/` — listar raíz
-- [ ] `GET /api/folders/:id` — contenido de carpeta
-- [ ] `POST /api/folders/` — crear carpeta
-- [ ] `PATCH /api/folders/:id` — renombrar
-- [ ] `DELETE /api/folders/:id` — eliminar (con flag `?recursive`)
-- [ ] Proteger todas las rutas con auth middleware
-
-### Fase 3 — Vincular archivos
-- [ ] Coordinado con feature `files` Fase 1
-- [ ] Upload acepta `folderId` opcional
-- [ ] Validar ownership del folder destino en upload
-
-### Fase 4 — Breadcrumb
-- [ ] `GET /api/folders/:id/breadcrumb` — CTE recursiva en PostgreSQL
-- [ ] `FoldersRepository.getBreadcrumb(id)`
+_Nada pendiente._
 
 ## Completado
-_Nada completado aún._
+
+### Fase 1 — Base de datos
+- [x] Migración: tabla `folders` con `id`, `name`, `parent_id`, `owner_id`, timestamps
+- [x] `ON DELETE CASCADE` en `parent_id` — subárbol eliminado en cascada
+
+### Fase 2 — CRUD endpoints
+- [x] `FoldersRepository` — findById, findRootByOwner, findChildrenWithFiles, create, rename, delete
+- [x] `FoldersService` — ownership check, delete recursivo (disco + BD)
+- [x] `FoldersController` — validación zod, contrato `{ data }` / `204`
+- [x] `GET /api/folders/` — listar raíz
+- [x] `GET /api/folders/:id` — contenido (subcarpetas + archivos)
+- [x] `POST /api/folders/` — crear carpeta
+- [x] `PATCH /api/folders/:id` — renombrar
+- [x] `DELETE /api/folders/:id` — eliminar con `?recursive=true` → `204`
+- [x] Auth middleware aplicado en todas las rutas
+
+### Fase 3 — Vincular archivos
+- [x] Upload acepta `folderId` en query param
+- [x] `FilesService` valida ownership del folder destino en upload
+
+### Fase 4 — Breadcrumb
+- [x] `GET /api/folders/:id/breadcrumb` — CTE recursiva PostgreSQL
+- [x] `FoldersRepository.getBreadcrumb(id, ownerId)` — retorna lista raíz→actual
 
 ---
 _Actualizar al iniciar o terminar cada tarea._

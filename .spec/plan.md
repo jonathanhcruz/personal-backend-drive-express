@@ -5,155 +5,168 @@
 | # | Fase | Descripción | Estado |
 |---|------|-------------|--------|
 | 1 | Scaffolding | Estructura de carpetas y archivos base | ✅ Completado |
-| 2 | Config y shared | Env validation, errors, middlewares base | 🔄 Parcial |
-| 3 | Base de datos | Conexión pg, migraciones, schema inicial | 🔄 Parcial |
-| 4 | Módulo auth | Login, JWT, refresh token, logout | ✅ Completado |
-| 5 | Módulo users | Usuario único en BD, rutas desactivadas | ✅ Completado |
-| 6 | Módulo folders | CRUD carpetas, navegación jerárquica | Pendiente |
-| 7 | Módulo files | Upload funcional con BD, download, borrado lógico | Pendiente |
-| 8 | Módulo audit | Log de acciones, IP, timestamp | Pendiente |
-| 9 | Módulo sharing | Permisos granulares, links públicos | Pendiente |
-| 10 | Módulo media | Streaming video/audio, thumbnails | Futuro |
+| 2 | Config y shared | Env, errores, middlewares base | ✅ Completado |
+| 3 | Base de datos | Conexión pg, migraciones, schema inicial | ✅ Completado |
+| 4 | Auth | Login, JWT, refresh token con rotación, logout | ✅ Completado |
+| 5 | Users | Usuario único en BD, rutas desactivadas | ✅ Completado |
+| 6 | Folders | CRUD carpetas con navegación jerárquica | ✅ Completado |
+| 7 | Files | Upload, download (Range), delete, share tokens | ✅ Completado |
+| 8 | Audit | Log de acciones: upload, download, delete, login | Pendiente |
+| 9 | Permisos | Compartir acceso entre usuarios registrados | Pendiente (scope TBD) |
+| 10 | Media | Streaming HLS, thumbnails de video | Futuro |
 
 ---
 
 ## Fase 1 — Scaffolding ✅
 
-Estructura hexagonal completa creada:
+Estructura hexagonal completa:
 ```
 src/
 ├── modules/
-│   ├── auth/   {domain, infrastructure, http}
-│   ├── users/  {domain, infrastructure, http}
-│   ├── files/  {domain, infrastructure, http}
-│   ├── folders/{domain, infrastructure, http}
-│   └── audit/  {domain, infrastructure, http}
+│   ├── auth/    {domain, infrastructure, http}
+│   ├── users/   {domain, infrastructure, http}
+│   ├── files/   {domain, infrastructure, http}
+│   ├── folders/ {domain, infrastructure, http}
+│   └── share/   {http}                         ← public download sin auth
 ├── shared/
+│   ├── constants/  {error-codes.ts}
 │   ├── middlewares/ {auth, error, rate-limit}
 │   ├── errors/      {AppError, http.errors}
-│   └── types/       {express.d.ts, pagination}
+│   └── types/       {express.d.ts}
 ├── config/          {env, database, multer}
 └── index.ts
 ```
 
 ---
 
-## Fase 2 — Config y shared 🔄 Parcial
+## Fase 2 — Config y shared ✅
 
-### Completado
 - `shared/errors/app.error.ts` — clase base `AppError`
-- `shared/errors/http.errors.ts` — `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ValidationError`, `ConflictError`
-- `shared/middlewares/error.middleware.ts` — captura `AppError` + `MulterError` + catch-all
-- `shared/middlewares/auth.middleware.ts` — stub (pasa a next, sin verificación)
-- `shared/middlewares/rate-limit.middleware.ts` — stub
-- `config/multer.ts` — diskStorage funcional, límite por ENV, fileFilter por mime
-- `config/env.ts` — variables básicas sin validación zod aún
-
-### Pendiente
-- `config/env.ts` — validación con `zod` al arranque (falla fast si falta var)
-- `shared/middlewares/auth.middleware.ts` — implementar verificación JWT real
-- `shared/middlewares/rate-limit.middleware.ts` — implementar con `express-rate-limit`
+- `shared/errors/http.errors.ts` — `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ValidationError`, `ConflictError` — todos aceptan `code: TErrorCode` opcional
+- `shared/constants/error-codes.ts` — `ErrorCode` objeto + tipo `TErrorCode`
+- `shared/middlewares/error.middleware.ts` — captura `AppError` + `MulterError` + catch-all 500
+- `shared/middlewares/auth.middleware.ts` — verifica JWT, inyecta `req.user`
+- `config/multer.ts` — diskStorage, límite `MAX_FILE_SIZE_MB`, fileFilter por mime
+- `config/env.ts` — variables de entorno cargadas
 
 ---
 
-## Fase 3 — Base de datos 🔄 Parcial
+## Fase 3 — Base de datos ✅
 
-### Completado
-- `config/database.ts` — `pg.Pool` conectado a Docker PostgreSQL (`drive-nest`)
-- Tabla `users` creada con columnas: `id`, `email`, `password_hash`, `role`, `is_active`, `refresh_token_hash`, `created_at`, `updated_at`
-- Paquetes instalados: `pg`, `@types/pg`, `bcrypt`, `@types/bcrypt`, `jsonwebtoken`, `@types/jsonwebtoken`, `zod`, `node-pg-migrate`
-- Scripts: `migrate:up`, `migrate:down`, `migrate:create`
-- Carpeta `migrations/` ignorada en git (pertenece a infra-drive)
-
-### Pendiente
-- Tabla `folders` — schema y migración (Fase 6)
-- Tabla `files` — schema y migración (Fase 7)
+- `config/database.ts` — `pg.Pool` conectado a Docker PostgreSQL
+- `node-pg-migrate` para migraciones
+- Tablas creadas:
+  - `users` — email, password_hash, role, refresh_token_hash
+  - `folders` — id, name, parent_id (cascada), owner_id
+  - `files` — id, name, mime_type, size, checksum, storage_path, folder_id, uploaded_by, deleted_at
+  - `file_share_tokens` — id, file_id, created_by, expires_at, used_at, created_at
 
 ---
 
-## Fase 4 — Módulo auth ✅
+## Fase 4 — Auth ✅
 
-### Implementado
 - `JwtAdapter` — sign/verify access token (15m) y refresh token (7d)
-- `UsersRepository` — `findByEmail` (con hash), `findById`, `setRefreshToken`
-- `AuthService`:
-  - `login` — bcrypt.compare (12 rounds) + emisión de token pair + almacena SHA-256 del refresh
-  - `refresh` — verifica JWT + compara hash almacenado + rotación
-  - `logout` — verifica JWT + compara hash + revoca (retorna `boolean` para feedback)
-- `AuthController` — validación zod, contrato `{ data }` / `{ error }`
-- Endpoints: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`
+- `UsersRepository` — findByEmail, findById, setRefreshToken
+- `AuthService` — login (bcrypt 12 rounds + SHA-256 hash), refresh (rotación), logout (revocación)
+- `AuthController` — zod, contrato estándar
+- Endpoints: `POST /api/auth/login`, `/refresh`, `/logout`
 
 ---
 
-## Fase 5 — Módulo users ✅
+## Fase 5 — Users ✅
 
-### Decisión
-- Un único usuario administrador creado directamente en la BD via `INSERT`
-- Contraseña hasheada con bcrypt generada en terminal
-- Rutas `GET/POST/PATCH/DELETE /api/users` comentadas (no expuestas)
-- `UsersRepository` activo solo para uso interno del módulo auth
+- Usuario admin creado directamente en BD via `INSERT` con hash bcrypt generado en terminal
+- Rutas `/api/users` no expuestas
+- `UsersRepository` activo solo para uso interno de auth
 
 ---
 
-## Fase 6 — Módulo folders (siguiente)
+## Fase 6 — Folders ✅
+
+- Tabla `folders` con `parent_id ON DELETE CASCADE`
+- `FoldersRepository` — findById, findRootByOwner, findChildrenWithFiles, getBreadcrumb (CTE recursiva), create, rename, delete
+- `FoldersService` — ownership check en todas las operaciones, lógica de delete recursivo
+- `FoldersController` — zod, todos los endpoints protegidos con auth
+- Breadcrumb: CTE `WITH RECURSIVE` en PostgreSQL
+- Delete recursivo: borra disco primero (`storage.remove` por cada archivo), luego BD (CASCADE)
+- Respuestas: `201` en create, `200` en rename/contents/breadcrumb, `204` en delete
+
+---
+
+## Fase 7 — Files + Share Tokens ✅
+
+### Files
+- Tabla `files` con `folder_id`, `uploaded_by`, `checksum` (SHA-256)
+- Ruta en disco: `{STORAGE_PATH}/{userId}/{folderId}/{uuid}.{ext}`
+- `FilesRepository` — findById, findByFolder, findByNameAndFolder, create, hardDelete
+- `StorageAdapter` — checksum SHA-256 streaming, remove, stream (ReadStream con Range)
+- `FilesService` — upload (disk-first + rollback), getById, listByFolder, stream, remove
+- `FilesController`:
+  - `POST /upload` — multer, `folderId` en query param
+  - `GET /` — listByFolder con `?folderId`
+  - `GET /:id` — metadata (sin storagePath)
+  - `GET /:id/download` — Range requests (HTTP 206), streaming a disco
+  - `DELETE /:id` — hard delete de disco + BD → `204`
+
+### Share Tokens
+- Tabla `file_share_tokens` — id, file_id, created_by, expires_at, used_at, created_at
+- Un archivo puede tener múltiples tokens activos simultáneos
+- Cada token es de **un solo uso** — se marca como usado en la primera descarga
+- Tokens expiran automáticamente a las **8 horas** de creación
+- `ShareTokensRepository` — create, findById, markUsed, findActiveByFileId, delete
+- `FilesService` — createShareToken, redeemToken, listShareTokens, revokeShareToken
+- Endpoints protegidos (auth): `POST /:id/share`, `GET /:id/share`, `DELETE /share/:tokenId`
+- Endpoint público: `GET /api/share/:token` — router separado sin auth middleware
+- Al revocar: elimina el token de BD (no soft-delete)
+- `markUsed` se llama **antes** de iniciar el stream para prevenir race conditions
+
+---
+
+## Fase 8 — Audit (Pendiente)
 
 ### Objetivo
-CRUD de carpetas con navegación jerárquica (carpetas anidadas).
+Registrar acciones importantes para trazabilidad.
 
-### Pasos
-1. Migración: tabla `folders`
-2. Implementar `FoldersRepository`
-3. Implementar `FoldersService`
-4. Implementar `FoldersController` + rutas protegidas con auth
-
-### Schema tabla `folders`
+### Tabla `audit_logs`
 ```sql
-CREATE TABLE folders (
+CREATE TABLE audit_logs (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       TEXT NOT NULL,
-  parent_id  UUID REFERENCES folders(id) ON DELETE CASCADE,
-  owner_id   UUID NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  user_id    UUID REFERENCES users(id),
+  action     TEXT NOT NULL,  -- 'upload' | 'download' | 'delete' | 'share' | 'login' | 'logout'
+  resource_id UUID,
+  resource_type TEXT,        -- 'file' | 'folder' | 'share_token'
+  ip         TEXT,
+  metadata   JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
----
+### Acciones a registrar
+- Login / logout
+- Upload de archivo
+- Download (autenticado y por token público)
+- Delete de archivo o carpeta
+- Creación y revocación de share token
 
-## Fase 7 — Módulo files completo (después de folders)
-
-### Schema tabla `files`
-```sql
-CREATE TABLE files (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name         TEXT NOT NULL,
-  mime_type    TEXT NOT NULL,
-  size         BIGINT NOT NULL,
-  checksum     TEXT NOT NULL,
-  storage_path TEXT NOT NULL,
-  folder_id    UUID REFERENCES folders(id) ON DELETE SET NULL,
-  uploaded_by  UUID NOT NULL REFERENCES users(id),
-  deleted_at   TIMESTAMPTZ,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-```
-
-### Comportamiento de duplicados
-- Mismo nombre + misma carpeta → `409 Conflict`
-- Header `X-Replace: true` → soft-delete del anterior + upload nuevo
+### Endpoint
+- `GET /api/audit/` — solo admin, con filtros y paginación
 
 ---
 
 ## Decisiones técnicas
-- Validación de DTOs: `zod`
-- Conexión BD: `pg` (driver nativo de PostgreSQL)
-- Migraciones: `node-pg-migrate` (gestionadas en `infra-drive`, no en el backend)
-- Hashing contraseñas: `bcrypt` (12 rounds)
-- JWT: `jsonwebtoken`
-- Refresh token: rotación en cada uso, hash SHA-256 almacenado en `users.refresh_token_hash`
-- Seguridad HTTP: `helmet` (pendiente)
-- Rate limiting: `express-rate-limit` (pendiente)
-- Upload: `multer` con `diskStorage` (streaming a disco, sin buffer en memoria)
-- Nombres en disco: nombre original del archivo
-- Ruta de almacenamiento: `STORAGE_PATH` env var (default `/mnt/jonathan/test`)
-- Usuario único: creado directamente en BD, sin endpoint de registro
+
+| Área | Decisión |
+|------|----------|
+| Arquitectura | Hexagonal: domain / infrastructure / http por módulo |
+| Validación | `zod` en el borde HTTP, antes del dominio |
+| BD | `pg.Pool` (driver nativo), sin ORM |
+| Migraciones | `node-pg-migrate` |
+| Storage | `multer diskStorage` — nombre `{uuid}.{ext}`, path `{userId}/{folderId}/` |
+| Checksum | SHA-256 streaming al momento del upload |
+| Streaming | Node.js `ReadStream` con `{ start, end }` para Range (HTTP 206) |
+| Share tokens | 1-uso, 8h, quemado antes de iniciar stream |
+| Errores | `TErrorCode` tipados en `error-codes.ts`, todos pasan por `errorMiddleware` |
+| Respuestas | `{ data }` o `204` en éxito, `{ error: { code, message } }` en error |
+| Strings i18n | `code` es estable — el frontend traduce; `message` es informativo para dev |
+| Hashing passwords | `bcrypt` 12 rounds |
+| JWT | Access 15m / Refresh 7d, hash SHA-256 del refresh almacenado en BD |

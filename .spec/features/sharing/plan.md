@@ -1,72 +1,82 @@
-# Plan — Feature: Sharing
+# Plan — Feature: Share Tokens ✅ Completado
+
+> Diseño original: módulo `sharing` independiente con tabla `shared_links`, permisos `view/download`, `revoked_at`.
+> Diseño implementado: tokens integrados en módulo `files`, 1-uso, 8h fijos, sin campo permission.
 
 ## Fases
 
 | # | Fase | Descripción | Estado |
 |---|------|-------------|--------|
-| 1 | Base de datos | Tabla `shared_links` con token, recurso, permiso y expiración | Pendiente |
-| 2 | Crear y revocar | Endpoints para generar y eliminar links | Pendiente |
-| 3 | Acceso público | Endpoint público que valida token y sirve el recurso | Pendiente |
+| 1 | Base de datos | Tabla `file_share_tokens` | ✅ Completado |
+| 2 | CRUD tokens | Crear, listar activos, revocar | ✅ Completado |
+| 3 | Acceso público | Router sin auth, redención 1-uso | ✅ Completado |
 
 ---
 
-## Fase 1 — Base de datos
+## Fase 1 — Base de datos ✅
 
-### Tabla `shared_links`
 ```sql
-CREATE TABLE shared_links (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  token       TEXT NOT NULL UNIQUE,
-  resource_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-  permission  TEXT NOT NULL CHECK (permission IN ('view', 'download')),
-  owner_id    UUID NOT NULL REFERENCES users(id),
-  expires_at  TIMESTAMPTZ NOT NULL,
-  revoked_at  TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE file_share_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_id    UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES users(id),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
-- `token` → UUID opaco, es lo que se comparte externamente
-- `permission` → `view` (inline) o `download` (attachment)
-- `expires_at` → obligatorio, sin links eternos
-- `revoked_at` → revocación manual antes del vencimiento (independiente de `expires_at`)
 
-### Validación de un token
-Un token es válido si:
-1. Existe en BD
-2. `expires_at > now()`
-3. `revoked_at IS NULL`
+- `used_at NULL` → token disponible
+- `used_at NOT NULL` → token ya usado (one-time burn)
+- `expires_at` → calculado en creación como `now() + 8h`
+- `ON DELETE CASCADE` → si se borra el archivo, sus tokens desaparecen
 
 ---
 
-## Fase 2 — Crear y revocar
+## Fase 2 — CRUD tokens ✅
 
-### Crear link
-- Solo el owner del archivo puede crear un link para ese archivo
-- Se genera un UUID como token
-- El owner define `permission` y `expires_at`
-- Se pueden crear múltiples links para el mismo archivo (view + download coexisten)
+### Crear token
+- Solo el owner del archivo puede crear
+- `expiresAt = now() + 8h` (fijo, no configurable por el cliente)
+- Retorna `{ token: id, expiresAt }`
 
-### Revocar link
+### Listar tokens activos
+- `WHERE used_at IS NULL AND expires_at > now()` — filtra ya usados y expirados
+- Retorna `[{ id, expiresAt, createdAt }]`
+
+### Revocar token
 - Solo el owner puede revocar
-- Setea `revoked_at = now()` — no elimina la fila (auditoría)
+- Verifica ownership: `shareTokensRepo.findById` → `filesRepo.findById(token.fileId)` → check `uploadedBy`
+- `shareTokensRepo.delete(tokenId)` — elimina la fila
 
 ---
 
-## Fase 3 — Acceso público
+## Fase 3 — Acceso público ✅
 
-- `GET /api/sharing/public/:token` → no requiere autenticación
-- Valida token (existencia, expiración, revocación)
-- Según `permission`:
-  - `view` → stream con `Content-Disposition: inline`
-  - `download` → stream con `Content-Disposition: attachment`
-- El token no revela el ID real del archivo ni su path en disco
+### Router separado
+`src/modules/share/http/share.routes.ts` — montado en `index.ts` como `/api/share` **antes** del auth middleware para que las descargas públicas no requieran JWT.
+
+### Flujo de redención
+1. Parsea y valida UUID del token
+2. `filesService.redeemToken(tokenId)`:
+   a. Busca token → `SHARE_TOKEN_NOT_FOUND` si no existe
+   b. Verifica `used_at IS NULL` → `SHARE_TOKEN_USED` si ya usado
+   c. Verifica `expiresAt > now()` → `SHARE_TOKEN_EXPIRED` si expirado
+   d. Llama `markUsed(tokenId)` — quema el token antes del stream
+   e. Retorna el `FileRecord` para hacer el stream
+3. Stream del archivo (misma lógica Range que download autenticado)
 
 ---
 
 ## Decisiones técnicas
 
-- Links de view y download son independientes — expiración y revocación por separado
-- Sin links eternos — `expires_at` obligatorio
-- Token opaco (UUID) — no firma JWT, no revela metadata del recurso
-- Revocación guarda `revoked_at` en vez de eliminar la fila (para auditoría futura)
-- El endpoint público no requiere JWT — el token es la credencial
+| Decisión | Razón |
+|----------|-------|
+| Integrado en módulo `files` | Los tokens son por archivo — no tiene sentido un módulo separado |
+| 1-uso (markUsed) en vez de multi-uso | Archivos sensibles — el usuario decide cuándo volver a compartir |
+| 8h fijos | Ventana corta reduce riesgo de tokens filtrados en uso |
+| `markUsed` antes del stream | Race condition: dos requests simultáneos con el mismo token, solo uno pasa |
+| Sin campo `permission` | Solo download — no hay vista inline por ahora |
+| Revocar elimina la fila | Sin necesidad de auditoría de revocaciones por ahora |
+| Router público separado | Más limpio que excepciones en el auth middleware |
+| Deuda técnica: lógica de stream duplicada | `FilesController.download` y `ShareController.downloadPublic` son casi idénticos. Pendiente refactor a helper. |

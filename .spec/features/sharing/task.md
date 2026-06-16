@@ -1,27 +1,31 @@
-# Tasks — Feature: Sharing
+# Tasks — Feature: Share Tokens ✅ Completado
 
 ## Pendiente
+_Nada pendiente._
 
-### Fase 1 — Base de datos
-- [ ] Migración: tabla `shared_links` con `id`, `token`, `resource_id`, `permission`, `owner_id`, `expires_at`, `revoked_at`, `created_at`
-- [ ] Índice en `token` (único, búsquedas frecuentes)
-
-### Fase 2 — Crear y revocar
-- [ ] `SharingRepository` — `create`, `findByOwner`, `findByToken`, `revoke`
-- [ ] `SharingService` — validar ownership del archivo, validar `expiresAt` no en pasado
-- [ ] `SharingController` — validación zod, contrato `{ data }` / `{ error }`
-- [ ] `POST /api/sharing/` — crear link con `permission` y `expiresAt`
-- [ ] `GET /api/sharing/` — listar links activos del usuario
-- [ ] `DELETE /api/sharing/:id` — revocar (setea `revoked_at`)
-
-### Fase 3 — Acceso público
-- [ ] `GET /api/sharing/public/:token` — sin auth middleware
-- [ ] Validar token: existencia + `expires_at > now()` + `revoked_at IS NULL`
-- [ ] Stream según `permission`: inline (view) o attachment (download)
-- [ ] Ruta pública montada antes del auth middleware en el router
+### Deuda técnica (baja prioridad)
+- [ ] Refactorizar lógica de streaming + Range: duplicada entre `FilesController.download` y `ShareController.downloadPublic`. Extraer a helper o función compartida.
 
 ## Completado
-_Nada completado aún._
+
+### Fase 1 — Base de datos
+- [x] Migración: tabla `file_share_tokens` con `id`, `file_id`, `created_by`, `expires_at`, `used_at`, `created_at`
+- [x] `ON DELETE CASCADE` en `file_id` — tokens eliminados si se borra el archivo
+
+### Fase 2 — CRUD tokens
+- [x] `ShareTokensRepository` — create, findById, markUsed, findActiveByFileId, delete
+- [x] `FilesService.createShareToken(fileId, ownerId)` — 8h expiry, ownership check
+- [x] `FilesService.listShareTokens(fileId, ownerId)` — solo activos
+- [x] `FilesService.revokeShareToken(tokenId, ownerId)` — ownership check + delete
+- [x] `POST /api/files/:id/share` → `201 { data: { token, expiresAt } }`
+- [x] `GET /api/files/:id/share` → `{ data: [{ id, expiresAt, createdAt }] }`
+- [x] `DELETE /api/files/share/:tokenId` → `204`
+
+### Fase 3 — Acceso público
+- [x] `FilesService.redeemToken(tokenId)` — valida existence + used_at + expires_at → markUsed → retorna FileRecord
+- [x] `ShareController.downloadPublic` — stream con Range support
+- [x] `src/modules/share/http/share.routes.ts` — router sin auth
+- [x] `GET /api/share/:token` — montado en `index.ts` sin auth middleware
 
 ---
 _Actualizar al iniciar o terminar cada tarea._

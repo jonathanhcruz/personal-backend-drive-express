@@ -14,16 +14,17 @@ modules/<nombre>/
   http/          → entrada HTTP (controller + routes)
 ```
 
-## Módulos planificados
+## Módulos
+
 | Módulo | Descripción | Estado |
 |--------|-------------|--------|
-| auth | Autenticación JWT + refresh tokens | Pendiente |
-| users | Gestión de usuarios y roles | Pendiente |
-| files | Upload, download, borrado lógico | Pendiente |
-| folders | Estructura jerárquica de carpetas | Pendiente |
-| sharing | Links públicos y permisos granulares | Pendiente |
-| media | Streaming de video/audio (futuro) | Futuro |
-| audit | Log de acciones | Pendiente |
+| auth | Autenticación JWT + refresh tokens con rotación | ✅ Implementado |
+| users | Usuario único admin gestionado en BD (sin rutas) | ✅ Implementado |
+| files | Upload, download (Range), delete, share tokens | ✅ Implementado |
+| folders | CRUD jerárquico, breadcrumb, delete recursivo | ✅ Implementado |
+| share | Descarga pública via token (router sin auth) | ✅ Implementado |
+| audit | Log de acciones del sistema | Pendiente |
+| media | Streaming HLS, thumbnails de video | Futuro |
 
 ## Decisiones técnicas firmes
 - Nunca leer/escribir archivos físicos fuera del módulo `files` (y `media` en el futuro)

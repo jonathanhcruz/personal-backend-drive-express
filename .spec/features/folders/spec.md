@@ -1,4 +1,4 @@
-# Spec — Feature: Folders
+# Spec — Feature: Folders ✅ Implementado
 
 ## Endpoints (`/api/folders`)
 
@@ -19,8 +19,7 @@
 ```json
 {
   "data": [
-    { "id": "uuid", "name": "Documentos", "createdAt": "...", "updatedAt": "..." },
-    { "id": "uuid", "name": "Fotos", "createdAt": "...", "updatedAt": "..." }
+    { "id": "uuid", "name": "Documentos", "parentId": null, "createdAt": "...", "updatedAt": "..." }
   ]
 }
 ```
@@ -29,9 +28,9 @@
 ```json
 {
   "data": {
-    "folder": { "id": "uuid", "name": "Documentos", "parentId": null },
+    "folder": { "id": "uuid", "name": "Documentos", "parentId": null, "createdAt": "...", "updatedAt": "..." },
     "subfolders": [
-      { "id": "uuid", "name": "Trabajo", "createdAt": "..." }
+      { "id": "uuid", "name": "Trabajo", "parentId": "uuid", "createdAt": "...", "updatedAt": "..." }
     ],
     "files": [
       { "id": "uuid", "name": "informe.pdf", "mimeType": "application/pdf", "size": 204800, "createdAt": "..." }
@@ -39,19 +38,18 @@
   }
 }
 ```
-> `storage_path` nunca aparece en ninguna respuesta.
+> `ownerId` y `storagePath` nunca aparecen en ninguna respuesta.
 
 ### GET `/:id/breadcrumb`
 ```json
 {
   "data": [
-    { "id": "uuid", "name": "Raíz" },
     { "id": "uuid", "name": "Documentos" },
     { "id": "uuid", "name": "Trabajo" }
   ]
 }
 ```
-Ordenado de raíz a carpeta actual.
+Ordenado de raíz a carpeta actual. Implementado con CTE recursiva en PostgreSQL.
 
 ### POST `/` — Crear carpeta
 Request:
@@ -60,7 +58,7 @@ Request:
 ```
 Response `201`:
 ```json
-{ "data": { "id": "uuid", "name": "Nueva carpeta", "parentId": "uuid", "createdAt": "..." } }
+{ "data": { "id": "uuid", "name": "Nueva carpeta", "parentId": "uuid | null", "createdAt": "...", "updatedAt": "..." } }
 ```
 
 ### PATCH `/:id` — Renombrar
@@ -70,28 +68,25 @@ Request:
 ```
 Response `200`:
 ```json
-{ "data": { "id": "uuid", "name": "Nuevo nombre", "updatedAt": "..." } }
+{ "data": { "id": "uuid", "name": "Nuevo nombre", "parentId": "uuid | null", "createdAt": "...", "updatedAt": "..." } }
 ```
 
 ### DELETE `/:id` — Eliminar
 Query param opcional: `?recursive=true`
-- Sin `recursive`: `409 Conflict` si la carpeta tiene contenido
-- Con `recursive=true`: elimina todo el subárbol (carpetas + archivos)
+- Sin `recursive` o `recursive=false`: falla si la carpeta tiene archivos o subcarpetas
+- Con `recursive=true`: elimina todo el subárbol (archivos de disco + BD en cascada)
 
-Response `200`:
-```json
-{ "data": { "message": "Folder deleted successfully" } }
-```
+Response: `204 No Content`
 
 ---
 
 ## Reglas de negocio
 
-- El cliente nunca recibe paths reales de disco — solo IDs y metadata
-- Toda operación valida que el `folder.owner_id` coincide con el usuario autenticado
-- `parentId: null` en crear → carpeta en raíz del usuario
-- Eliminar carpeta padre en cascada elimina subcarpetas en BD automáticamente
-- Disco y BD siempre sincronizados: fallo en disco cancela la operación en BD
+- `ownerId` nunca sale en ninguna respuesta (usa `FolderPublicDto = Omit<Folder, 'ownerId'>`)
+- Toda operación valida `folder.ownerId === userId` autenticado
+- `parentId: null` → carpeta en raíz del usuario
+- `ON DELETE CASCADE` en BD elimina subcarpetas automáticamente
+- Delete recursivo: borra archivos del disco uno a uno **antes** de borrar en BD
 
 ---
 
@@ -99,7 +94,7 @@ Response `200`:
 
 | Código | Status | Cuándo |
 |--------|--------|--------|
-| `NOT_FOUND` | 404 | Carpeta no existe |
+| `FOLDER_NOT_FOUND` | 404 | Carpeta no existe |
 | `FORBIDDEN` | 403 | Carpeta no pertenece al usuario |
-| `CONFLICT` | 409 | Intento de eliminar carpeta no vacía sin `?recursive=true` |
-| `VALIDATION_ERROR` | 400 | Body inválido |
+| `CONFLICT` | 409 | Eliminar carpeta no vacía sin `?recursive=true` |
+| `VALIDATION_ERROR` | 400 | Body inválido o UUID inválido en params |

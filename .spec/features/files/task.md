@@ -1,36 +1,46 @@
-# Tasks — Feature: Files
+# Tasks — Feature: Files ✅ Completado
 
 ## Pendiente
-
-### Fase 1 — Base de datos
-- [ ] Migración: tabla `files` con `id`, `name`, `mime_type`, `size`, `checksum`, `storage_path`, `folder_id`, `owner_id`, `deleted_at`, `created_at`
-- [ ] `FilesRepository` — queries con `WHERE owner_id = :userId` y `deleted_at IS NULL`
-- [ ] Adaptar upload: guardar en disco → insertar en BD → rollback en disco si BD falla
-- [ ] Upload acepta `folderId` opcional, valida ownership del folder
-
-### Fase 2 — Endpoints metadata
-- [ ] `GET /api/files/` — listar con filtros y paginación
-- [ ] `GET /api/files/:id` — detalle con `viewUrl` y `downloadUrl`
-- [ ] `FilesService` — ownership check en cada operación
-- [ ] `FilesController` — validación zod, contrato `{ data }` / `{ error }`
-
-### Fase 3 — View y Download
-- [ ] `GET /api/files/:id/view` — stream con `Content-Disposition: inline`
-- [ ] `GET /api/files/:id/download` — stream con `Content-Disposition: attachment`
-- [ ] Ambos validan ownership antes de abrir archivo en disco
-
-### Fase 4 — Borrado lógico
-- [ ] `DELETE /api/files/:id` — soft-delete (`deleted_at = now()`)
-- [ ] `DELETE /api/files/:id/hard` — elimina disco + BD, solo admin
-
-### Fase 5 — Duplicados
-- [ ] Detección nombre + folderId en upload → `409 Conflict`
-- [ ] Soporte header `X-Replace: true` → soft-delete anterior + nuevo upload
+_Nada pendiente._
 
 ## Completado
-- [x] Upload funcional a disco (`/mnt/jonathan/test`) — sin BD aún
-- [x] `StorageAdapter` — checksum SHA-256 streaming, remove
-- [x] `config/multer.ts` — diskStorage, límite por ENV, fileFilter
+
+### Fase 1 — Base de datos
+- [x] Migración: tabla `files` con `id`, `name`, `mime_type`, `size`, `checksum`, `storage_path`, `folder_id`, `uploaded_by`, `deleted_at`, `created_at`
+- [x] `StorageAdapter` — checksum SHA-256 streaming, remove, stream con Range
+- [x] `FilesRepository` — findById, findByFolder, findByNameAndFolder, create, hardDelete
+- [x] Upload funcional: disk-first + rollback en BD si falla
+
+### Fase 2 — Metadata
+- [x] `FilesService.getById(id, ownerId)` — ownership check
+- [x] `FilesService.listByFolder(folderId, ownerId)` — valida carpeta + ownership
+- [x] `GET /api/files/` — listar por `?folderId`
+- [x] `GET /api/files/:id` — metadata (sin storagePath)
+- [x] `FilePublicDto = Omit<FileRecord, 'storagePath'>`
+
+### Fase 3 — Download
+- [x] `GET /api/files/:id/download` — streaming completo `200 OK`
+- [x] Range requests → `206 Partial Content` + `Content-Range`
+- [x] `416 Range Not Satisfiable` en rangos inválidos
+- [x] Stream errors → `500 STREAM_ERROR` si headers no enviados
+
+### Fase 4 — Delete
+- [x] `DELETE /api/files/:id` — hard delete disco + BD → `204`
+- [x] `FilesRepository.hardDelete(id)`
+
+### Fase 5 — Duplicados
+- [x] `FilesRepository.findByNameAndFolder` antes del upload
+- [x] Si existe → cleanup del disco + `409 CONFLICT`
+
+### Fase 6 — Share Tokens
+- [x] Migración: tabla `file_share_tokens`
+- [x] `ShareTokensRepository` — create, findById, markUsed, findActiveByFileId, delete
+- [x] `FilesService` — createShareToken (8h), redeemToken (1-uso), listShareTokens, revokeShareToken
+- [x] `POST /api/files/:id/share` → `201 { data: { token, expiresAt } }`
+- [x] `GET /api/files/:id/share` → `{ data: [{ id, expiresAt, createdAt }] }`
+- [x] `DELETE /api/files/share/:tokenId` → `204`
+- [x] `src/modules/share/` — router público sin auth
+- [x] `GET /api/share/:token` — redeem + stream con Range
 
 ---
 _Actualizar al iniciar o terminar cada tarea._

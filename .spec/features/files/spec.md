@@ -1,25 +1,27 @@
-# Spec — Feature: Files
+# Spec — Feature: Files ✅ Implementado
 
 ## Endpoints (`/api/files`)
 
 | Método | Ruta | Descripción | Auth |
 |--------|------|-------------|------|
 | POST | `/upload` | Subir archivo (`multipart/form-data`, campo `file`) | Sí |
-| GET | `/` | Listar archivos del usuario (activos) | Sí |
+| GET | `/` | Listar archivos por carpeta | Sí |
 | GET | `/:id` | Metadata de un archivo | Sí |
-| GET | `/:id/view` | Visualizar archivo en el browser (inline) | Sí |
-| GET | `/:id/download` | Descargar archivo | Sí |
-| DELETE | `/:id` | Soft-delete (mover a papelera) | Sí |
-| DELETE | `/:id/hard` | Eliminar permanentemente del disco y BD | admin |
+| GET | `/:id/download` | Descargar archivo (soporta Range requests) | Sí |
+| DELETE | `/:id` | Eliminar archivo de disco y BD | Sí |
+| POST | `/:id/share` | Crear token de compartir (1-uso, 8h) | Sí |
+| GET | `/:id/share` | Listar tokens activos del archivo | Sí |
+| DELETE | `/share/:tokenId` | Revocar token de compartir | Sí |
+
+> **Importante — orden de rutas**: `DELETE /share/:tokenId` y `GET /:id/share` deben registrarse **antes** de `GET /:id` y `DELETE /:id` para que Express no interprete "share" como un `:id`.
 
 ---
 
 ## Contratos
 
-### POST `/upload`
-Request: `multipart/form-data`
-- Campo `file`: el archivo
-- Campo `folderId` (opcional): UUID de la carpeta destino (null → raíz)
+### POST `/upload?folderId=<uuid>` — Subir archivo
+Request: `multipart/form-data`, campo `file`
+Query param `folderId`: UUID de la carpeta destino (obligatorio)
 
 Response `201`:
 ```json
@@ -30,17 +32,17 @@ Response `201`:
     "mimeType": "application/pdf",
     "size": 204800,
     "checksum": "sha256hex",
-    "folderId": "uuid | null",
-    "viewUrl": "/api/files/uuid/view",
-    "downloadUrl": "/api/files/uuid/download",
+    "folderId": "uuid",
+    "uploadedBy": "uuid",
+    "deletedAt": null,
     "createdAt": "2026-06-10T..."
   }
 }
 ```
-> `storage_path` nunca aparece en ninguna respuesta.
+> `storagePath` nunca aparece en ninguna respuesta (`FilePublicDto = Omit<FileRecord, 'storagePath'>`).
 
 ### GET `/` — Listar archivos
-Query params opcionales: `folderId`, `mimeType`, `page`, `limit`
+Query param: `folderId` (UUID opcional — null lista archivos sin carpeta)
 
 Response `200`:
 ```json
@@ -51,13 +53,13 @@ Response `200`:
       "name": "informe.pdf",
       "mimeType": "application/pdf",
       "size": 204800,
-      "folderId": "uuid | null",
-      "viewUrl": "/api/files/uuid/view",
-      "downloadUrl": "/api/files/uuid/download",
+      "checksum": "sha256hex",
+      "folderId": "uuid",
+      "uploadedBy": "uuid",
+      "deletedAt": null,
       "createdAt": "..."
     }
-  ],
-  "meta": { "page": 1, "limit": 20, "total": 42 }
+  ]
 }
 ```
 
@@ -70,64 +72,79 @@ Response `200`:
     "mimeType": "application/pdf",
     "size": 204800,
     "checksum": "sha256hex",
-    "folderId": "uuid | null",
-    "viewUrl": "/api/files/uuid/view",
-    "downloadUrl": "/api/files/uuid/download",
+    "folderId": "uuid",
+    "uploadedBy": "uuid",
+    "deletedAt": null,
     "createdAt": "..."
   }
 }
 ```
 
-### GET `/:id/view`
+### GET `/:id/download` — Descargar
 - Valida ownership
-- Hace stream del archivo desde disco
-- Headers: `Content-Disposition: inline; filename="informe.pdf"`, `Content-Type: application/pdf`
-- El browser renderiza el archivo directamente (PDF, imagen, video básico)
+- Responde stream binario desde disco
+- Headers: `Content-Disposition: attachment; filename*=UTF-8''<nombre>`, `Content-Type`, `Accept-Ranges: bytes`
+- Descarga completa: `200 OK` + `Content-Length`
+- Range request (`Range: bytes=<start>-<end>`): `206 Partial Content` + `Content-Range`
 
-### GET `/:id/download`
-- Valida ownership
-- Hace stream del archivo desde disco
-- Headers: `Content-Disposition: attachment; filename="informe.pdf"`, `Content-Type: application/pdf`
-- El browser fuerza descarga
+### DELETE `/:id` — Eliminar
+Elimina el archivo del disco y de la BD (hard delete).
 
-### DELETE `/:id` — Soft-delete
-Response `200`:
-```json
-{ "data": { "message": "File moved to trash" } }
-```
+Response: `204 No Content`
 
-### DELETE `/:id/hard` — Hard-delete (admin)
-Response `200`:
-```json
-{ "data": { "message": "File permanently deleted" } }
-```
-
----
-
-## Comportamiento de duplicados
-
-- Mismo `name` + mismo `folderId` → `409 Conflict`:
+### POST `/:id/share` — Crear token
+Response `201`:
 ```json
 {
-  "error": {
-    "code": "CONFLICT",
-    "message": "A file with this name already exists in this folder",
-    "existing": { "id": "uuid", "name": "informe.pdf", "createdAt": "..." }
+  "data": {
+    "token": "uuid",
+    "expiresAt": "2026-06-15T22:00:00.000Z"
   }
 }
 ```
-- Header `X-Replace: true` en el upload → soft-delete del existente + sube el nuevo
+- Token válido por 8 horas
+- Token de un solo uso — se invalida en la primera descarga
+
+### GET `/:id/share` — Listar tokens activos
+Solo devuelve tokens que no han sido usados y no han expirado.
+
+Response `200`:
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "expiresAt": "2026-06-15T22:00:00.000Z",
+      "createdAt": "2026-06-15T14:00:00.000Z"
+    }
+  ]
+}
+```
+
+### DELETE `/share/:tokenId` — Revocar token
+Elimina el token de la BD.
+
+Response: `204 No Content`
 
 ---
 
 ## Reglas de negocio
 
-- `storage_path` es interno — nunca sale en ninguna respuesta
-- Toda operación valida `file.owner_id === userId` autenticado
-- Archivos con `deleted_at` no aparecen en listados ni son accesibles
-- Hard-delete requiere rol `admin`
-- Upload: disco primero → BD después. Fallo en disco cancela todo
-- `viewUrl` y `downloadUrl` los genera el backend — el cliente no construye URLs
+- `storagePath` es interno — nunca sale en ninguna respuesta
+- Toda operación valida `file.uploadedBy === userId` autenticado
+- Upload: disco primero → BD después. Si BD falla → elimina archivo del disco
+- Duplicados: mismo nombre + misma carpeta → `409 CONFLICT`
+- Delete: hard delete (no soft). Elimina de disco y de BD
+- Share tokens: 1-uso, 8h de vida, múltiples tokens por archivo permitidos
+- `markUsed` se llama antes de iniciar el stream → previene race conditions
+
+---
+
+## Ruta de almacenamiento en disco
+```
+{STORAGE_PATH}/{userId}/{folderId}/{uuid}.{ext}
+```
+Gestionada por `multer diskStorage`. El backend es el único que conoce esta ruta.
 
 ---
 
@@ -135,8 +152,12 @@ Response `200`:
 
 | Código | Status | Cuándo |
 |--------|--------|--------|
-| `NOT_FOUND` | 404 | Archivo no existe o fue eliminado |
-| `FORBIDDEN` | 403 | Archivo no pertenece al usuario |
+| `FILE_NOT_FOUND` | 404 | Archivo no existe |
+| `FOLDER_NOT_FOUND` | 404 | Carpeta destino no existe en upload |
+| `FORBIDDEN` | 403 | El archivo o carpeta no pertenece al usuario |
 | `CONFLICT` | 409 | Nombre duplicado en la misma carpeta |
 | `FILE_TOO_LARGE` | 413 | Supera `MAX_FILE_SIZE_MB` |
+| `NO_FILE` | 400 | Upload sin campo `file` |
+| `SHARE_TOKEN_NOT_FOUND` | 404 | Token no existe en revocación |
 | `VALIDATION_ERROR` | 400 | Body o params inválidos |
+| `STREAM_ERROR` | 500 | Error leyendo el archivo del disco |

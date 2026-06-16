@@ -1,97 +1,112 @@
-# Spec — Feature: Sharing
+# Spec — Feature: Share Tokens ✅ Implementado
 
-## Endpoints (`/api/sharing`)
+> Esta feature se implementó integrada en el módulo `files`, no como módulo `sharing` separado.
+> El diseño original (tabla `shared_links`, permisos view/download, revocación con `revoked_at`) fue simplificado.
 
-| Método | Ruta | Descripción | Auth |
-|--------|------|-------------|------|
-| POST | `/` | Crear link de acceso temporal | Sí (owner) |
-| GET | `/` | Listar links activos del usuario | Sí |
-| DELETE | `/:id` | Revocar link | Sí (owner) |
-| GET | `/public/:token` | Acceder al recurso vía token | No |
+## Endpoints
+
+### Gestión de tokens — requieren auth (`/api/files`)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/:id/share` | Crear token para un archivo |
+| GET | `/:id/share` | Listar tokens activos del archivo |
+| DELETE | `/share/:tokenId` | Revocar (eliminar) un token |
+
+### Acceso público — sin auth (`/api/share`)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/:token` | Descargar archivo vía token (1-uso) |
 
 ---
 
 ## Contratos
 
-### POST `/` — Crear link
-Request:
-```json
-{
-  "fileId": "uuid",
-  "permission": "view | download",
-  "expiresAt": "2026-06-17T00:00:00Z"
-}
-```
+### POST `/api/files/:id/share` — Crear token
+Solo el owner del archivo puede crear tokens.
+
 Response `201`:
 ```json
 {
   "data": {
-    "id": "uuid",
-    "token": "uuid-opaco",
-    "fileId": "uuid",
-    "permission": "view",
-    "expiresAt": "2026-06-17T00:00:00Z",
-    "publicUrl": "/api/sharing/public/uuid-opaco",
-    "createdAt": "..."
+    "token": "550e8400-e29b-41d4-a716-446655440000",
+    "expiresAt": "2026-06-15T22:00:00.000Z"
   }
 }
 ```
 
-### GET `/` — Listar links activos
+### GET `/api/files/:id/share` — Listar tokens activos
+Solo devuelve tokens no usados y no expirados.
+
+Response `200`:
 ```json
 {
   "data": [
     {
       "id": "uuid",
-      "token": "uuid-opaco",
-      "fileId": "uuid",
-      "fileName": "informe.pdf",
-      "permission": "view",
-      "expiresAt": "2026-06-17T...",
-      "publicUrl": "/api/sharing/public/uuid-opaco",
-      "createdAt": "..."
+      "expiresAt": "2026-06-15T22:00:00.000Z",
+      "createdAt": "2026-06-15T14:00:00.000Z"
     }
   ]
 }
 ```
-Solo devuelve links no revocados y no expirados.
 
-### DELETE `/:id` — Revocar
-Response `200`:
-```json
-{ "data": { "message": "Link revoked successfully" } }
-```
+### DELETE `/api/files/share/:tokenId` — Revocar
+Solo el owner del archivo puede revocar.
+Elimina el token de la BD.
 
-### GET `/public/:token` — Acceso público
+Response: `204 No Content`
+
+### GET `/api/share/:token` — Descarga pública
 - No requiere JWT
-- Valida: token existe, `expires_at > now()`, `revoked_at IS NULL`
-- Según `permission`:
-  - `view` → stream con `Content-Disposition: inline`
-  - `download` → stream con `Content-Disposition: attachment`
-- El token no revela el ID del archivo ni su path en disco
+- El `token` es el `id` UUID del token en BD
+- Valida: token existe → no usado → no expirado
+- Marca como usado (`used_at = now()`) antes de iniciar el stream
+- Devuelve stream binario del archivo
 
-Respuestas de error:
+Response: stream con `Content-Disposition: attachment`
+- Soporta Range requests (HTTP 206)
+
+Errores:
 ```json
-{ "error": { "code": "NOT_FOUND", "message": "Link not found or expired" } }
+{ "error": { "code": "SHARE_TOKEN_NOT_FOUND", "message": "Token not found" } }
+{ "error": { "code": "SHARE_TOKEN_USED", "message": "Token already used" } }
+{ "error": { "code": "SHARE_TOKEN_EXPIRED", "message": "Token expired" } }
 ```
 
 ---
 
 ## Reglas de negocio
 
-- Solo el owner del archivo puede crear un link para ese archivo
-- `expiresAt` es obligatorio — no hay links eternos
-- Un mismo archivo puede tener múltiples links activos (view y download coexisten)
-- Cada link tiene su propia expiración y revocación — son independientes entre sí
-- Revocar setea `revoked_at` — no elimina la fila (trazabilidad)
-- El endpoint público no requiere autenticación — el token es la credencial de acceso
+- Solo el owner del archivo puede crear y revocar tokens
+- Un archivo puede tener múltiples tokens activos simultáneos (cada uno es una URL de compartir diferente)
+- Tokens expiran automáticamente a las **8 horas** de creación
+- Tokens son de **un solo uso** — se marcan como usados en la primera descarga exitosa
+- `markUsed` se llama antes de iniciar el stream (previene race conditions)
+- Revocar elimina el token de BD (no soft-delete — no hay trazabilidad de revocaciones)
+- `GET /api/files/:id/share` solo lista tokens activos (no usados, no expirados)
 
 ---
+
+## Tabla `file_share_tokens`
+```sql
+CREATE TABLE file_share_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_id    UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES users(id),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
 
 ## Errores
 
 | Código | Status | Cuándo |
 |--------|--------|--------|
-| `NOT_FOUND` | 404 | Token no existe, expirado o revocado |
-| `FORBIDDEN` | 403 | Intentar crear/revocar link de un archivo ajeno |
-| `VALIDATION_ERROR` | 400 | Body inválido o `expiresAt` en el pasado |
+| `FILE_NOT_FOUND` | 404 | Archivo no existe al crear/listar tokens |
+| `FORBIDDEN` | 403 | El archivo no pertenece al usuario |
+| `SHARE_TOKEN_NOT_FOUND` | 404 | Token no existe en revocación o redención |
+| `SHARE_TOKEN_USED` | 403 | Token ya fue usado |
+| `SHARE_TOKEN_EXPIRED` | 403 | Token expirado (> 8h) |
+| `VALIDATION_ERROR` | 400 | UUID inválido en params |
+| `STREAM_ERROR` | 500 | Error leyendo el archivo del disco |
