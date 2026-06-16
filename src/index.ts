@@ -4,6 +4,7 @@ import { errorMiddleware } from './shared/middlewares/error.middleware';
 import authRoutes from './modules/auth/http/auth.routes';
 import usersRoutes from './modules/users/http/users.routes';
 import filesRoutes from './modules/files/http/files.routes';
+import shareRoutes from './modules/share/http/share.routes';
 import foldersRoutes from './modules/folders/http/folders.routes';
 import auditRoutes from './modules/audit/http/audit.routes';
 import { query } from './config/database';
@@ -22,6 +23,7 @@ app.get('/', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/files', filesRoutes);
+app.use('/api/share', shareRoutes);
 app.use('/api/folders', foldersRoutes);
 app.use('/api/audit', auditRoutes);
 

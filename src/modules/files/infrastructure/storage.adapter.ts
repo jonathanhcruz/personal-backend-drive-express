@@ -19,8 +19,8 @@ export class StorageAdapter {
     await unlink(filePath).catch(() => undefined);
   }
 
-  async read(_filePath: string): Promise<Buffer> {
-    throw new Error('not implemented');
+  stream(filePath: string, options?: { start?: number; end?: number }) {
+    return createReadStream(filePath, options);
   }
 
   async ensureUserDir(userId: string): Promise<void> {
