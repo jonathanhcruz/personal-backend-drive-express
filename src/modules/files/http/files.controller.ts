@@ -4,12 +4,13 @@ import { z } from 'zod';
 import type { FilesService } from '../domain/files.service';
 import type { FileRecord, FilePublicDto } from '../domain/files.types';
 import { ValidationError } from '../../../shared/errors/http.errors';
+import { ErrorCode } from '../../../shared/constants/error-codes';
 
 const uuidSchema = z.uuid();
 
-function parseUuid(value: unknown): string {
+function parseUuid(value: unknown, label = 'ID'): string {
   const result = uuidSchema.safeParse(value);
-  if (!result.success) throw new ValidationError('Invalid file ID');
+  if (!result.success) throw new ValidationError(`Invalid ${label}`);
   return result.data;
 }
 
@@ -80,12 +81,16 @@ export class FilesController {
       res.setHeader('Content-Range', `bytes ${start}-${end}/${file.size}`);
       res.setHeader('Content-Length', end - start + 1);
       const partial = this.service.stream(file.storagePath, { start, end });
-      partial.on('error', () => { if (!res.headersSent) res.status(500).end(); });
+      partial.on('error', () => {
+        if (!res.headersSent) res.status(500).json({ error: { code: ErrorCode.STREAM_ERROR, message: 'Failed to read file' } });
+      });
       partial.pipe(res);
     } else {
       res.setHeader('Content-Length', file.size);
       const full = this.service.stream(file.storagePath);
-      full.on('error', () => { if (!res.headersSent) res.status(500).end(); });
+      full.on('error', () => {
+        if (!res.headersSent) res.status(500).json({ error: { code: ErrorCode.STREAM_ERROR, message: 'Failed to read file' } });
+      });
       full.pipe(res);
     }
   }
@@ -97,7 +102,7 @@ export class FilesController {
   }
 
   async revokeShare(req: Request, res: Response): Promise<void> {
-    const tokenId = parseUuid(req.params['tokenId']);
+    const tokenId = parseUuid(req.params['tokenId'], 'token ID');
     await this.service.revokeShareToken(tokenId, req.user!.id);
     res.status(204).send();
   }

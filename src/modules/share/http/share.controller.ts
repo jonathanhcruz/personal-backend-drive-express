@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import type { FilesService } from '../../files/domain/files.service';
 import { ValidationError } from '../../../shared/errors/http.errors';
+import { ErrorCode } from '../../../shared/constants/error-codes';
 
 const uuidSchema = z.uuid();
 
@@ -39,12 +40,16 @@ export class ShareController {
       res.setHeader('Content-Range', `bytes ${start}-${end}/${file.size}`);
       res.setHeader('Content-Length', end - start + 1);
       const partial = this.filesService.stream(file.storagePath, { start, end });
-      partial.on('error', () => { if (!res.headersSent) res.status(500).end(); });
+      partial.on('error', () => {
+        if (!res.headersSent) res.status(500).json({ error: { code: ErrorCode.STREAM_ERROR, message: 'Failed to read file' } });
+      });
       partial.pipe(res);
     } else {
       res.setHeader('Content-Length', file.size);
       const full = this.filesService.stream(file.storagePath);
-      full.on('error', () => { if (!res.headersSent) res.status(500).end(); });
+      full.on('error', () => {
+        if (!res.headersSent) res.status(500).json({ error: { code: ErrorCode.STREAM_ERROR, message: 'Failed to read file' } });
+      });
       full.pipe(res);
     }
   }

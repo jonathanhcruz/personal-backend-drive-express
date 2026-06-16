@@ -3,6 +3,7 @@ import type { StorageAdapter } from '../infrastructure/storage.adapter';
 import type { FoldersRepository } from '../../folders/infrastructure/folders.repository';
 import type { ShareTokensRepository } from '../infrastructure/share-tokens.repository';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../../shared/errors/http.errors';
+import { ErrorCode } from '../../../shared/constants/error-codes';
 import type { FileRecord, UploadFileDto } from './files.types';
 import type { ShareToken } from './share-token.types';
 
@@ -18,7 +19,7 @@ export class FilesService {
     const folder = await this.foldersRepo.findById(dto.folderId);
     if (!folder) {
       await this.storage.remove(dto.storagePath);
-      throw new NotFoundError('Folder not found');
+      throw new NotFoundError('Folder not found', ErrorCode.FOLDER_NOT_FOUND);
     }
     if (folder.ownerId !== ownerId) {
       await this.storage.remove(dto.storagePath);
@@ -51,7 +52,7 @@ export class FilesService {
 
   async getById(id: string, ownerId: string): Promise<FileRecord> {
     const file = await this.repo.findById(id);
-    if (!file) throw new NotFoundError('File not found');
+    if (!file) throw new NotFoundError('File not found', ErrorCode.FILE_NOT_FOUND);
     if (file.uploadedBy !== ownerId) throw new ForbiddenError();
     return file;
   }
@@ -59,7 +60,7 @@ export class FilesService {
   async listByFolder(folderId: string | null, ownerId: string): Promise<FileRecord[]> {
     if (folderId !== null) {
       const folder = await this.foldersRepo.findById(folderId);
-      if (!folder) throw new NotFoundError('Folder not found');
+      if (!folder) throw new NotFoundError('Folder not found', ErrorCode.FOLDER_NOT_FOUND);
       if (folder.ownerId !== ownerId) throw new ForbiddenError();
     }
     return this.repo.findByFolder(folderId, ownerId);
@@ -79,14 +80,14 @@ export class FilesService {
 
   async listShareTokens(fileId: string, ownerId: string): Promise<ShareToken[]> {
     const file = await this.repo.findById(fileId);
-    if (!file) throw new NotFoundError('File not found');
+    if (!file) throw new NotFoundError('File not found', ErrorCode.FILE_NOT_FOUND);
     if (file.uploadedBy !== ownerId) throw new ForbiddenError();
     return this.shareTokensRepo.findActiveByFileId(fileId);
   }
 
   async revokeShareToken(tokenId: string, ownerId: string): Promise<void> {
     const token = await this.shareTokensRepo.findById(tokenId);
-    if (!token) throw new NotFoundError('Token not found');
+    if (!token) throw new NotFoundError('Token not found', ErrorCode.SHARE_TOKEN_NOT_FOUND);
     const file = await this.repo.findById(token.fileId);
     if (!file || file.uploadedBy !== ownerId) throw new ForbiddenError();
     await this.shareTokensRepo.delete(tokenId);
@@ -94,18 +95,18 @@ export class FilesService {
 
   async redeemToken(tokenId: string): Promise<FileRecord> {
     const token = await this.shareTokensRepo.findById(tokenId);
-    if (!token) throw new NotFoundError('Token not found');
-    if (token.usedAt !== null) throw new ForbiddenError();
-    if (token.expiresAt < new Date()) throw new ForbiddenError();
+    if (!token) throw new NotFoundError('Token not found', ErrorCode.SHARE_TOKEN_NOT_FOUND);
+    if (token.usedAt !== null) throw new ForbiddenError('Token already used', ErrorCode.SHARE_TOKEN_USED);
+    if (token.expiresAt < new Date()) throw new ForbiddenError('Token expired', ErrorCode.SHARE_TOKEN_EXPIRED);
     await this.shareTokensRepo.markUsed(tokenId);
     const file = await this.repo.findById(token.fileId);
-    if (!file) throw new NotFoundError('File not found');
+    if (!file) throw new NotFoundError('File not found', ErrorCode.FILE_NOT_FOUND);
     return file;
   }
 
   async remove(id: string, ownerId: string): Promise<void> {
     const file = await this.repo.findById(id);
-    if (!file) throw new NotFoundError('File not found');
+    if (!file) throw new NotFoundError('File not found', ErrorCode.FILE_NOT_FOUND);
     if (file.uploadedBy !== ownerId) throw new ForbiddenError();
     await this.repo.hardDelete(id);
     await this.storage.remove(file.storagePath);

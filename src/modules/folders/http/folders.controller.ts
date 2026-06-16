@@ -74,6 +74,6 @@ export class FoldersController {
     const id = parseUuid(req.params['id']);
     const recursive = req.query['recursive'] === 'true';
     await this.service.remove(id, req.user!.id, recursive);
-    res.json({ data: { message: 'Folder deleted successfully' } });
+    res.status(204).send();
   }
 }
