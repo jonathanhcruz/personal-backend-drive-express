@@ -12,8 +12,8 @@ const ctrl = new AuthController(service);
 
 const router = Router();
 
-router.post('/login', authRateLimit, (req, res, next) => ctrl.login(req, res).catch(next));
-router.post('/refresh', (req, res, next) => ctrl.refresh(req, res).catch(next));
-router.post('/logout', (req, res, next) => ctrl.logout(req, res).catch(next));
+router.post('/login',   authRateLimit, (req, res, next) => ctrl.login(req, res).catch(next));
+router.post('/refresh', authRateLimit, (req, res, next) => ctrl.refresh(req, res).catch(next));
+router.post('/logout',  authRateLimit, (req, res, next) => ctrl.logout(req, res).catch(next));
 
 export default router;

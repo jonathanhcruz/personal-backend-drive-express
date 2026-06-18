@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { env } from './config/env';
 import { errorMiddleware } from './shared/middlewares/error.middleware';
 import authRoutes from './modules/auth/http/auth.routes';
 import usersRoutes from './modules/users/http/users.routes';
@@ -13,6 +16,8 @@ import { StorageAdapter } from './modules/files/infrastructure/storage.adapter';
 const app = express();
 const PORT = process.env['PORT'] ?? 3000;
 
+app.use(cors({ origin: env.frontendUrl, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -10,7 +10,7 @@ export class JwtAdapter {
 
   signRefreshToken(userId: string): string {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: env.refreshExpiresIn } as any);
+    return jwt.sign({ sub: userId }, env.refreshTokenSecret, { expiresIn: env.refreshExpiresIn } as any);
   }
 
   verifyAccessToken(token: string): AuthUser {
@@ -18,6 +18,6 @@ export class JwtAdapter {
   }
 
   verifyRefreshToken(token: string): { sub: string } {
-    return jwt.verify(token, env.jwtSecret) as { sub: string };
+    return jwt.verify(token, env.refreshTokenSecret) as { sub: string };
   }
 }

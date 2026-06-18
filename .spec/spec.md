@@ -2,7 +2,7 @@
 
 ## Endpoints por módulo
 
-### Auth (`/api/auth`) ⚠️ Pendiente actualización — cookie httpOnly
+### Auth (`/api/auth`) ✅ Implementado — estrategia dual cookie/body
 
 | Método | Ruta | Descripción | Auth requerida |
 |--------|------|-------------|----------------|

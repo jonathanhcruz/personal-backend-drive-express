@@ -7,7 +7,7 @@
 | 1 | Scaffolding | Estructura de carpetas y archivos base | ✅ Completado |
 | 2 | Config y shared | Env, errores, middlewares base | ✅ Completado |
 | 3 | Base de datos | Conexión pg, migraciones, schema inicial | ✅ Completado |
-| 4 | Auth | Login, JWT, refresh token con rotación, logout | ✅ Completado |
+| 4 | Auth | Login, JWT, refresh (rotación), logout — estrategia dual cookie/body | ✅ Completado |
 | 5 | Users | Usuario único en BD, rutas desactivadas | ✅ Completado |
 | 6 | Folders | CRUD carpetas con navegación jerárquica | ✅ Completado |
 | 7 | Files | Upload, download (Range), delete, share tokens | ✅ Completado |
@@ -63,20 +63,16 @@ src/
 
 ---
 
-## Fase 4 — Auth ⚠️ Implementado, pendiente actualización cookie
+## Fase 4 — Auth ✅
 
-- `JwtAdapter` — sign/verify access token (15m) y refresh token (7d)
+- `JwtAdapter` — sign/verify access (15m) con `jwtSecret`, refresh (7d) con `refreshTokenSecret` (secretos separados)
 - `UsersRepository` — findByEmail, findById, setRefreshToken
-- `AuthService` — login (bcrypt 12 rounds + SHA-256 hash), refresh (rotación), logout (revocación)
-- `AuthController` — zod, contrato estándar
+- `AuthService` — login (bcrypt 12 + SHA-256 hash), refresh (rotación), logout (revocación)
+- `AuthController` — estrategia dual: helper `getRefreshToken(req)` lee cookie httpOnly (web) o body (Expo)
+- `cors` con `credentials: true` + `FRONTEND_URL` en env
+- `cookieParser` montado en `index.ts`
+- Rate limiting en los tres endpoints (`authRateLimit`)
 - Endpoints: `POST /api/auth/login`, `/refresh`, `/logout`
-
-**Cambio pendiente — refreshToken como httpOnly cookie:**
-- `login`: dejar de devolver `refreshToken` en body → setearlo como `Set-Cookie` httpOnly
-- `refresh`: leer token de cookie en lugar del body → devolver nueva cookie en respuesta
-- `logout`: leer token de cookie en lugar del body → limpiar cookie con `Max-Age=0`
-- Requiere habilitar `cookie-parser` en Express y configurar CORS con `credentials: true`
-- Ver contrato completo en `.spec/spec.md` sección Auth
 
 ---
 
