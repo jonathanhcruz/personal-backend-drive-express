@@ -2,17 +2,40 @@
 
 ## Endpoints por módulo
 
-### Auth (`/api/auth`) ✅ Implementado
+### Auth (`/api/auth`) ⚠️ Pendiente actualización — cookie httpOnly
+
 | Método | Ruta | Descripción | Auth requerida |
 |--------|------|-------------|----------------|
-| POST | `/login` | Login con email + contraseña → token pair | No |
-| POST | `/refresh` | Renueva token pair, invalida el anterior (rotación) | No |
-| POST | `/logout` | Revoca el refresh token activo | No |
+| POST | `/login` | Login con email + contraseña → accessToken en body + refreshToken en cookie | No |
+| POST | `/refresh` | Renueva tokens leyendo cookie — devuelve nuevo accessToken en body + nueva cookie | No |
+| POST | `/logout` | Revoca refresh token leyendo cookie — limpia cookie | No |
 
-**Logout responses:**
-- `200` `{ "data": { "message": "Session closed successfully" } }` — revocado
-- `400` `{ "error": { "code": "VALIDATION_ERROR", ... } }` — body sin `refreshToken`
-- `401` `{ "error": { "code": "UNAUTHORIZED", ... } }` — token inválido, expirado o ya revocado
+#### Decisión: refreshToken como httpOnly cookie
+
+El `refreshToken` deja de enviarse en el body de la respuesta y pasa a setearse como cookie por el servidor. Motivación: JavaScript en el cliente nunca puede leerla — elimina el riesgo XSS sobre el token de mayor duración (7 días).
+
+**Login — respuesta actualizada:**
+```
+Set-Cookie: refreshToken=<token>; HttpOnly; Secure; SameSite=Strict; Path=/api/auth; Max-Age=604800
+Body: { "data": { "accessToken": "..." } }
+```
+
+**Refresh — cambio de contrato:**
+- Antes: requería `{ refreshToken }` en el body
+- Ahora: lee el refreshToken de la cookie automáticamente (el navegador la envía solo)
+- Respuesta: nuevo `accessToken` en body + nueva cookie (rotación)
+
+**Logout — cambio de contrato:**
+- Antes: requería `{ refreshToken }` en el body
+- Ahora: lee el refreshToken de la cookie — revoca en BD y limpia la cookie con `Max-Age=0`
+- Respuesta: `200` `{ "data": { "message": "Session closed successfully" } }`
+
+**Configuración de cookie:**
+- `HttpOnly` — inaccesible desde JavaScript
+- `Secure` — solo HTTPS (Cloudflare Tunnel garantiza esto en prod)
+- `SameSite=Strict` — solo se envía en requests al mismo dominio (protección CSRF)
+- `Path=/api/auth` — la cookie solo se envía a las rutas de auth, no a cada request
+- `Max-Age=604800` — 7 días, igual que la expiración del JWT
 
 ### Users (`/api/users`) ✅ Decisión tomada
 Rutas desactivadas — usuario único gestionado directamente en la BD via `INSERT`.

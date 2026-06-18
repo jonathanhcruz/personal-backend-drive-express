@@ -63,13 +63,20 @@ src/
 
 ---
 
-## Fase 4 — Auth ✅
+## Fase 4 — Auth ⚠️ Implementado, pendiente actualización cookie
 
 - `JwtAdapter` — sign/verify access token (15m) y refresh token (7d)
 - `UsersRepository` — findByEmail, findById, setRefreshToken
 - `AuthService` — login (bcrypt 12 rounds + SHA-256 hash), refresh (rotación), logout (revocación)
 - `AuthController` — zod, contrato estándar
 - Endpoints: `POST /api/auth/login`, `/refresh`, `/logout`
+
+**Cambio pendiente — refreshToken como httpOnly cookie:**
+- `login`: dejar de devolver `refreshToken` en body → setearlo como `Set-Cookie` httpOnly
+- `refresh`: leer token de cookie en lugar del body → devolver nueva cookie en respuesta
+- `logout`: leer token de cookie en lugar del body → limpiar cookie con `Max-Age=0`
+- Requiere habilitar `cookie-parser` en Express y configurar CORS con `credentials: true`
+- Ver contrato completo en `.spec/spec.md` sección Auth
 
 ---
 
