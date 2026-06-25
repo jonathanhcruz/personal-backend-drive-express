@@ -16,7 +16,9 @@ import { StorageAdapter } from './modules/files/infrastructure/storage.adapter';
 const app = express();
 const PORT = process.env['PORT'] ?? 3000;
 
-app.use(cors({ origin: env.frontendUrl, credentials: true }));
+const corsOptions = { origin: env.frontendUrl, credentials: true };
+app.use(cors(corsOptions));
+app.options('/{*path}', cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
