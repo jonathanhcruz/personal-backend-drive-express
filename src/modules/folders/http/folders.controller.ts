@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import type { FoldersService } from '../domain/folders.service';
 import type { Folder, FolderContents, FolderPublicDto } from '../domain/folders.types';
-import { ValidationError } from '../../../shared/errors/http.errors';
+import { ValidationError, NotFoundError } from '../../../shared/errors/http.errors';
 
 function toPublic(folder: Folder): FolderPublicDto {
   const { ownerId: _omit, ...rest } = folder;
@@ -39,8 +39,10 @@ export class FoldersController {
   constructor(private readonly service: FoldersService) {}
 
   async listRoot(req: Request, res: Response): Promise<void> {
-    const folders = await this.service.listRoot(req.user!.id);
-    res.json({ data: folders.map(toPublic) });
+    const roots = await this.service.listRoot(req.user!.id);
+    if (roots.length === 0) throw new NotFoundError('Root folder not found');
+    const contents = await this.service.getContents(roots[0]!.id, req.user!.id);
+    res.json({ data: contentsToPublic(contents) });
   }
 
   async getContents(req: Request, res: Response): Promise<void> {

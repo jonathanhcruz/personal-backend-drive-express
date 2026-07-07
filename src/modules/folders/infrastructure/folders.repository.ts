@@ -56,10 +56,16 @@ export class FoldersRepository {
   }
 
   async getContents(folderId: string): Promise<FolderContents> {
-    const [folderResult, subfoldersResult] = await Promise.all([
+    type FileRow = { id: string; name: string; mime_type: string; size: string; created_at: Date };
+
+    const [folderResult, subfoldersResult, filesResult] = await Promise.all([
       this.db.query<FolderRow>('SELECT * FROM folders WHERE id = $1', [folderId]),
       this.db.query<FolderRow>(
         'SELECT * FROM folders WHERE parent_id = $1 ORDER BY name',
+        [folderId],
+      ),
+      this.db.query<FileRow>(
+        'SELECT id, name, mime_type, size, created_at FROM files WHERE folder_id = $1 AND deleted_at IS NULL ORDER BY name',
         [folderId],
       ),
     ]);
@@ -70,7 +76,13 @@ export class FoldersRepository {
     return {
       folder: toFolder(folderRow),
       subfolders: subfoldersResult.rows.map(toFolder),
-      files: [],
+      files: filesResult.rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        mimeType: r.mime_type,
+        size: Number(r.size),
+        createdAt: r.created_at,
+      })),
     };
   }
 
