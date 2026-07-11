@@ -5,7 +5,7 @@ import type { ShareTokensRepository } from '../infrastructure/share-tokens.repos
 import { NotFoundError, ForbiddenError, ConflictError } from '../../../shared/errors/http.errors';
 import { ErrorCode } from '../../../shared/constants/error-codes';
 import type { FileRecord, UploadFileDto } from './files.types';
-import type { ShareToken } from './share-token.types';
+import type { ShareToken, ShareTokenWithFile } from './share-token.types';
 
 export class FilesService {
   constructor(
@@ -76,6 +76,10 @@ export class FilesService {
     if (file.uploadedBy !== ownerId) throw new ForbiddenError();
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
     return this.shareTokensRepo.create(fileId, ownerId, expiresAt);
+  }
+
+  async listAllShareTokens(ownerId: string): Promise<ShareTokenWithFile[]> {
+    return this.shareTokensRepo.findActiveByOwner(ownerId);
   }
 
   async listShareTokens(fileId: string, ownerId: string): Promise<ShareToken[]> {

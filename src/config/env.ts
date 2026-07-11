@@ -11,7 +11,18 @@ const schema = z.object({
   STORAGE_PATH: z.string().min(1, 'STORAGE_PATH is required'),
   MAX_FILE_SIZE_MB: z.coerce.number().positive().default(100),
   ALLOWED_MIME_TYPES: z.string().default(''),
-  FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL'),
+  FRONTEND_URL: z
+    .string()
+    .min(1, 'FRONTEND_URL is required')
+    .transform((val) =>
+      val
+        .split(',')
+        .map((url) => url.trim())
+        .filter(Boolean),
+    )
+    .refine((urls) => urls.every((url) => z.string().url().safeParse(url).success), {
+      message: 'FRONTEND_URL must be a comma-separated list of valid URLs',
+    }),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -37,5 +48,5 @@ export const env = {
   storagePath: data.STORAGE_PATH,
   maxFileSizeMb: data.MAX_FILE_SIZE_MB,
   allowedMimeTypes: data.ALLOWED_MIME_TYPES.split(',').filter(Boolean),
-  frontendUrl: data.FRONTEND_URL,
+  frontendUrls: data.FRONTEND_URL,
 };

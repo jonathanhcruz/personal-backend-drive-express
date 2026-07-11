@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { ShareToken } from '../domain/share-token.types';
+import type { ShareToken, ShareTokenWithFile } from '../domain/share-token.types';
 
 type ShareTokenRow = {
   id: string;
@@ -61,5 +61,20 @@ export class ShareTokensRepository {
 
   async delete(id: string): Promise<void> {
     await this.db.query('DELETE FROM file_share_tokens WHERE id = $1', [id]);
+  }
+
+  async findActiveByOwner(ownerId: string): Promise<ShareTokenWithFile[]> {
+    type Row = ShareTokenRow & { file_name: string };
+    const result = await this.db.query<Row>(
+      `SELECT st.*, f.name AS file_name
+       FROM file_share_tokens st
+       INNER JOIN files f ON f.id = st.file_id
+       WHERE st.created_by = $1
+         AND st.used_at IS NULL
+         AND st.expires_at > now()
+       ORDER BY st.created_at DESC`,
+      [ownerId],
+    );
+    return result.rows.map((r) => ({ ...toShareToken(r), fileName: r.file_name }));
   }
 }

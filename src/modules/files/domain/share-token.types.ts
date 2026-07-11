@@ -6,3 +6,7 @@ export interface ShareToken {
   usedAt: Date | null;
   createdAt: Date;
 }
+
+export interface ShareTokenWithFile extends ShareToken {
+  fileName: string;
+}

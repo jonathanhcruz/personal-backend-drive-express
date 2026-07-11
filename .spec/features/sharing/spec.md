@@ -6,11 +6,12 @@
 ## Endpoints
 
 ### Gestión de tokens — requieren auth (`/api/files`)
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| POST | `/:id/share` | Crear token para un archivo |
-| GET | `/:id/share` | Listar tokens activos del archivo |
-| DELETE | `/share/:tokenId` | Revocar (eliminar) un token |
+| Método | Ruta | Descripción | Estado |
+|--------|------|-------------|--------|
+| POST | `/:id/share` | Crear token para un archivo | ✅ |
+| GET | `/:id/share` | Listar tokens activos del archivo | ✅ |
+| DELETE | `/share/:tokenId` | Revocar (eliminar) un token | ✅ |
+| GET | `/shares` | Listar todos los tokens activos del usuario (todos los archivos) | ✅ |
 
 ### Acceso público — sin auth (`/api/share`)
 | Método | Ruta | Descripción |
@@ -56,6 +57,33 @@ Elimina el token de la BD.
 
 Response: `204 No Content`
 
+---
+
+### GET `/api/files/shares` — Listar todos los tokens activos del usuario
+
+Devuelve todos los tokens activos (no usados, no expirados) creados por el usuario autenticado, en todos sus archivos. Incluye el nombre del archivo para que el cliente pueda mostrarlo sin hacer requests adicionales.
+
+Response `200`:
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "fileId": "uuid",
+      "fileName": "documento.pdf",
+      "expiresAt": "2026-07-08T10:00:00.000Z",
+      "createdAt": "2026-07-07T02:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Implementación:**
+- `ShareTokensRepository.findActiveByOwner(ownerId)` — JOIN con `files` para traer `file_name`
+- `FilesService.listAllShareTokens(ownerId)` — delega al repo sin validación adicional
+- `FilesController.listAllShares(req, res)`
+- Ruta `GET /shares` registrada antes de `/:id` en `files.routes.ts` para evitar conflicto de parámetro
+
 ### GET `/api/share/:token` — Descarga pública
 - No requiere JWT
 - El `token` es el `id` UUID del token en BD
@@ -83,7 +111,8 @@ Errores:
 - Tokens son de **un solo uso** — se marcan como usados en la primera descarga exitosa
 - `markUsed` se llama antes de iniciar el stream (previene race conditions)
 - Revocar elimina el token de BD (no soft-delete — no hay trazabilidad de revocaciones)
-- `GET /api/files/:id/share` solo lista tokens activos (no usados, no expirados)
+- `GET /api/files/:id/share` solo lista tokens activos (no usados, no expirados) de un archivo
+- `GET /api/files/shares` solo lista tokens activos (no usados, no expirados) de todos los archivos del usuario
 
 ---
 

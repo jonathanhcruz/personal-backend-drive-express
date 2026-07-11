@@ -62,6 +62,7 @@ No hay endpoint de registro ni gestión de usuarios desde la API.
 | POST | `/:id/share` | Crear token de compartir (1-uso, 8h) | Sí |
 | GET | `/:id/share` | Listar tokens activos del archivo | Sí |
 | DELETE | `/share/:tokenId` | Revocar token de compartir | Sí |
+| GET | `/shares` | Listar todos los tokens activos del usuario (todos los archivos) | Sí |
 
 ### Share público (`/api/share`) ✅ Implementado
 | Método | Ruta | Descripción | Auth requerida |

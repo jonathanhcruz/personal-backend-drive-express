@@ -95,6 +95,19 @@ export class FilesController {
     }
   }
 
+  async listAllShares(req: Request, res: Response): Promise<void> {
+    const tokens = await this.service.listAllShareTokens(req.user!.id);
+    res.json({
+      data: tokens.map((t) => ({
+        id: t.id,
+        fileId: t.fileId,
+        fileName: t.fileName,
+        expiresAt: t.expiresAt,
+        createdAt: t.createdAt,
+      })),
+    });
+  }
+
   async listShares(req: Request, res: Response): Promise<void> {
     const id = parseUuid(req.params['id']);
     const tokens = await this.service.listShareTokens(id, req.user!.id);

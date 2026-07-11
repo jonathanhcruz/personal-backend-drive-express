@@ -34,6 +34,7 @@ router.use(authMiddleware);
 
 router.post('/upload', requireFolderIdQuery, upload.single('file'), (req, res, next) => ctrl.upload(req, res).catch(next));
 router.get('/', (req, res, next) => ctrl.listByFolder(req, res).catch(next));
+router.get('/shares', (req, res, next) => ctrl.listAllShares(req, res).catch(next));
 router.delete('/share/:tokenId', (req, res, next) => ctrl.revokeShare(req, res).catch(next));
 router.get('/:id/share', (req, res, next) => ctrl.listShares(req, res).catch(next));
 router.post('/:id/share', (req, res, next) => ctrl.createShare(req, res).catch(next));

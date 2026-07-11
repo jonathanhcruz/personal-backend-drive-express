@@ -16,7 +16,16 @@ import { StorageAdapter } from './modules/files/infrastructure/storage.adapter';
 const app = express();
 const PORT = process.env['PORT'] ?? 3000;
 
-const corsOptions = { origin: env.frontendUrl, credentials: true };
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || env.frontendUrls.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
 app.use(cors(corsOptions));
 app.options('/{*path}', cors(corsOptions));
 app.use(cookieParser());
