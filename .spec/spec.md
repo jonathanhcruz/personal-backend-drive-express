@@ -58,6 +58,7 @@ No hay endpoint de registro ni gestión de usuarios desde la API.
 | GET | `/` | Listar archivos del usuario por carpeta | Sí |
 | GET | `/:id` | Metadata de un archivo | Sí |
 | GET | `/:id/download` | Descargar archivo (soporta Range requests) | Sí |
+| PATCH | `/:id` | Renombrar archivo | Sí |
 | DELETE | `/:id` | Eliminar archivo de disco y BD | Sí |
 | POST | `/:id/share` | Crear token de compartir (1-uso, 8h) | Sí |
 | GET | `/:id/share` | Listar tokens activos del archivo | Sí |

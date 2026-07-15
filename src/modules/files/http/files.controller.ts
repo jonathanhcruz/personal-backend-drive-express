@@ -131,6 +131,14 @@ export class FilesController {
     });
   }
 
+  async rename(req: Request, res: Response): Promise<void> {
+    const id = parseUuid(req.params['id']);
+    const parsed = z.object({ name: z.string().min(1).max(255) }).safeParse(req.body);
+    if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? 'Validation error');
+    const file = await this.service.rename(id, req.user!.id, parsed.data.name);
+    res.json({ data: toPublic(file) });
+  }
+
   async remove(req: Request, res: Response): Promise<void> {
     const id = parseUuid(req.params['id']);
     await this.service.remove(id, req.user!.id);

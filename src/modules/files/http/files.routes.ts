@@ -40,6 +40,7 @@ router.get('/:id/share', (req, res, next) => ctrl.listShares(req, res).catch(nex
 router.post('/:id/share', (req, res, next) => ctrl.createShare(req, res).catch(next));
 router.get('/:id/download', (req, res, next) => ctrl.download(req, res).catch(next));
 router.get('/:id', (req, res, next) => ctrl.getById(req, res).catch(next));
+router.patch('/:id', (req, res, next) => ctrl.rename(req, res).catch(next));
 router.delete('/:id', (req, res, next) => ctrl.remove(req, res).catch(next));
 
 export default router;

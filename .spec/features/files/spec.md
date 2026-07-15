@@ -8,6 +8,7 @@
 | GET | `/` | Listar archivos por carpeta | Sí |
 | GET | `/:id` | Metadata de un archivo | Sí |
 | GET | `/:id/download` | Descargar archivo (soporta Range requests) | Sí |
+| PATCH | `/:id` | Renombrar archivo | Sí |
 | DELETE | `/:id` | Eliminar archivo de disco y BD | Sí |
 | POST | `/:id/share` | Crear token de compartir (1-uso, 8h) | Sí |
 | GET | `/:id/share` | Listar tokens activos del archivo | Sí |
@@ -86,6 +87,28 @@ Response `200`:
 - Headers: `Content-Disposition: attachment; filename*=UTF-8''<nombre>`, `Content-Type`, `Accept-Ranges: bytes`
 - Descarga completa: `200 OK` + `Content-Length`
 - Range request (`Range: bytes=<start>-<end>`): `206 Partial Content` + `Content-Range`
+
+### PATCH `/:id` — Renombrar archivo
+Body: `{ "name": "nuevo-nombre.pdf" }`
+
+Response `200`:
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "nuevo-nombre.pdf",
+    "mimeType": "application/pdf",
+    "size": 204800,
+    "checksum": "sha256hex",
+    "folderId": "uuid",
+    "uploadedBy": "uuid",
+    "deletedAt": null,
+    "createdAt": "..."
+  }
+}
+```
+- Solo actualiza la columna `name` en BD — el archivo físico no se mueve
+- Valida que no exista ya un archivo con el mismo nombre en la misma carpeta (`409 CONFLICT`)
 
 ### DELETE `/:id` — Eliminar
 Elimina el archivo del disco y de la BD (hard delete).

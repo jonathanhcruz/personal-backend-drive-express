@@ -70,6 +70,15 @@ export class FilesService {
     return this.storage.stream(filePath, options);
   }
 
+  async rename(id: string, ownerId: string, name: string): Promise<FileRecord> {
+    const file = await this.repo.findById(id);
+    if (!file) throw new NotFoundError('File not found', ErrorCode.FILE_NOT_FOUND);
+    if (file.uploadedBy !== ownerId) throw new ForbiddenError();
+    const existing = await this.repo.findByNameAndFolder(name, file.folderId, ownerId);
+    if (existing) throw new ConflictError(`A file named "${name}" already exists in this folder`);
+    return this.repo.rename(id, name);
+  }
+
   async createShareToken(fileId: string, ownerId: string): Promise<ShareToken> {
     const file = await this.repo.findById(fileId);
     if (!file) throw new NotFoundError('File not found');
