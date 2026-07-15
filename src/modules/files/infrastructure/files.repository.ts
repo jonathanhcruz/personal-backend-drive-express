@@ -91,6 +91,14 @@ export class FilesRepository {
     return toFileRecord(result.rows[0]!);
   }
 
+  async move(id: string, targetFolderId: string): Promise<FileRecord> {
+    const result = await this.db.query<FileRow>(
+      'UPDATE files SET folder_id = $1 WHERE id = $2 AND deleted_at IS NULL RETURNING *',
+      [targetFolderId, id],
+    );
+    return toFileRecord(result.rows[0]!);
+  }
+
   async softDelete(id: string): Promise<void> {
     await this.db.query('UPDATE files SET deleted_at = now() WHERE id = $1', [id]);
   }

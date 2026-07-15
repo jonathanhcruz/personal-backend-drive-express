@@ -13,6 +13,7 @@ type FolderRow = {
   name: string;
   parent_id: string | null;
   owner_id: string;
+  has_children: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -23,6 +24,7 @@ function toFolder(row: FolderRow): Folder {
     name: row.name,
     parentId: row.parent_id,
     ownerId: row.owner_id,
+    hasChildren: row.has_children,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -33,7 +35,9 @@ export class FoldersRepository {
 
   async findRootByOwner(ownerId: string): Promise<Folder[]> {
     const result = await this.db.query<FolderRow>(
-      'SELECT * FROM folders WHERE parent_id IS NULL AND owner_id = $1 ORDER BY name',
+      `SELECT id, name, parent_id, owner_id, created_at, updated_at,
+        EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
+       FROM folders WHERE parent_id IS NULL AND owner_id = $1 ORDER BY name`,
       [ownerId],
     );
     return result.rows.map(toFolder);
@@ -41,7 +45,9 @@ export class FoldersRepository {
 
   async findById(id: string): Promise<Folder | null> {
     const result = await this.db.query<FolderRow>(
-      'SELECT * FROM folders WHERE id = $1',
+      `SELECT id, name, parent_id, owner_id, created_at, updated_at,
+        EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
+       FROM folders WHERE id = $1`,
       [id],
     );
     return result.rows[0] ? toFolder(result.rows[0]) : null;
@@ -49,7 +55,9 @@ export class FoldersRepository {
 
   async findChildren(parentId: string): Promise<Folder[]> {
     const result = await this.db.query<FolderRow>(
-      'SELECT * FROM folders WHERE parent_id = $1 ORDER BY name',
+      `SELECT id, name, parent_id, owner_id, created_at, updated_at,
+        EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
+       FROM folders WHERE parent_id = $1 ORDER BY name`,
       [parentId],
     );
     return result.rows.map(toFolder);
@@ -59,9 +67,16 @@ export class FoldersRepository {
     type FileRow = { id: string; name: string; mime_type: string; size: string; created_at: Date };
 
     const [folderResult, subfoldersResult, filesResult] = await Promise.all([
-      this.db.query<FolderRow>('SELECT * FROM folders WHERE id = $1', [folderId]),
       this.db.query<FolderRow>(
-        'SELECT * FROM folders WHERE parent_id = $1 ORDER BY name',
+        `SELECT id, name, parent_id, owner_id, created_at, updated_at,
+          EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
+         FROM folders WHERE id = $1`,
+        [folderId],
+      ),
+      this.db.query<FolderRow>(
+        `SELECT id, name, parent_id, owner_id, created_at, updated_at,
+          EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
+         FROM folders WHERE parent_id = $1 ORDER BY name`,
         [folderId],
       ),
       this.db.query<FileRow>(
@@ -103,7 +118,9 @@ export class FoldersRepository {
 
   async findByNameAndParent(name: string, parentId: string | null, ownerId: string): Promise<Folder | null> {
     const result = await this.db.query<FolderRow>(
-      `SELECT * FROM folders
+      `SELECT id, name, parent_id, owner_id, created_at, updated_at,
+        EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
+       FROM folders
        WHERE name = $1 AND owner_id = $2 AND parent_id IS NOT DISTINCT FROM $3`,
       [name, ownerId, parentId],
     );
@@ -114,7 +131,7 @@ export class FoldersRepository {
     const result = await this.db.query<FolderRow>(
       `INSERT INTO folders (name, parent_id, owner_id)
        VALUES ($1, $2, $3)
-       RETURNING *`,
+       RETURNING id, name, parent_id, owner_id, created_at, updated_at, false AS has_children`,
       [dto.name, dto.parentId, ownerId],
     );
     return toFolder(result.rows[0]!);
@@ -122,8 +139,22 @@ export class FoldersRepository {
 
   async rename(id: string, dto: UpdateFolderDto): Promise<Folder> {
     const result = await this.db.query<FolderRow>(
-      'UPDATE folders SET name = $1, updated_at = now() WHERE id = $2 RETURNING *',
+      `WITH updated AS (UPDATE folders SET name = $1, updated_at = now() WHERE id = $2 RETURNING *)
+       SELECT u.id, u.name, u.parent_id, u.owner_id, u.created_at, u.updated_at,
+         EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = u.id) AS has_children
+       FROM updated u`,
       [dto.name, id],
+    );
+    return toFolder(result.rows[0]!);
+  }
+
+  async move(id: string, targetParentId: string | null): Promise<Folder> {
+    const result = await this.db.query<FolderRow>(
+      `WITH updated AS (UPDATE folders SET parent_id = $1, updated_at = now() WHERE id = $2 RETURNING *)
+       SELECT u.id, u.name, u.parent_id, u.owner_id, u.created_at, u.updated_at,
+         EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = u.id) AS has_children
+       FROM updated u`,
+      [targetParentId, id],
     );
     return toFolder(result.rows[0]!);
   }

@@ -3,6 +3,7 @@ export interface Folder {
   name: string;
   parentId: string | null;
   ownerId: string;
+  hasChildren: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

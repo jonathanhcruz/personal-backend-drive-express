@@ -9,6 +9,7 @@
 | GET | `/:id` | Metadata de un archivo | Sí |
 | GET | `/:id/download` | Descargar archivo (soporta Range requests) | Sí |
 | PATCH | `/:id` | Renombrar archivo | Sí |
+| PATCH | `/:id/move` | Mover archivo a otra carpeta | Sí |
 | DELETE | `/:id` | Eliminar archivo de disco y BD | Sí |
 | POST | `/:id/share` | Crear token de compartir (1-uso, 8h) | Sí |
 | GET | `/:id/share` | Listar tokens activos del archivo | Sí |
@@ -109,6 +110,29 @@ Response `200`:
 ```
 - Solo actualiza la columna `name` en BD — el archivo físico no se mueve
 - Valida que no exista ya un archivo con el mismo nombre en la misma carpeta (`409 CONFLICT`)
+
+### PATCH `/:id/move` — Mover archivo
+Body: `{ "targetFolderId": "uuid" }`
+
+Response `200`:
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "informe.pdf",
+    "mimeType": "application/pdf",
+    "size": 204800,
+    "checksum": "sha256hex",
+    "folderId": "uuid-carpeta-destino",
+    "uploadedBy": "uuid",
+    "deletedAt": null,
+    "createdAt": "..."
+  }
+}
+```
+- Solo actualiza `folder_id` en BD — el archivo físico no se mueve (`storage_path` permanece igual)
+- Si `targetFolderId` es la misma carpeta actual → devuelve el archivo sin cambios (no-op)
+- Valida que no exista un archivo con el mismo nombre en la carpeta destino (`409 CONFLICT`)
 
 ### DELETE `/:id` — Eliminar
 Elimina el archivo del disco y de la BD (hard delete).

@@ -79,6 +79,19 @@ export class FilesService {
     return this.repo.rename(id, name);
   }
 
+  async move(id: string, ownerId: string, targetFolderId: string): Promise<FileRecord> {
+    const file = await this.repo.findById(id);
+    if (!file) throw new NotFoundError('File not found', ErrorCode.FILE_NOT_FOUND);
+    if (file.uploadedBy !== ownerId) throw new ForbiddenError();
+    if (file.folderId === targetFolderId) return file;
+    const targetFolder = await this.foldersRepo.findById(targetFolderId);
+    if (!targetFolder) throw new NotFoundError('Target folder not found', ErrorCode.FOLDER_NOT_FOUND);
+    if (targetFolder.ownerId !== ownerId) throw new ForbiddenError();
+    const existing = await this.repo.findByNameAndFolder(file.name, targetFolderId, ownerId);
+    if (existing) throw new ConflictError(`A file named "${file.name}" already exists in the target folder`);
+    return this.repo.move(id, targetFolderId);
+  }
+
   async createShareToken(fileId: string, ownerId: string): Promise<ShareToken> {
     const file = await this.repo.findById(fileId);
     if (!file) throw new NotFoundError('File not found');

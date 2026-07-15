@@ -139,6 +139,14 @@ export class FilesController {
     res.json({ data: toPublic(file) });
   }
 
+  async move(req: Request, res: Response): Promise<void> {
+    const id = parseUuid(req.params['id']);
+    const parsed = z.object({ targetFolderId: z.uuid() }).safeParse(req.body);
+    if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? 'Validation error');
+    const file = await this.service.move(id, req.user!.id, parsed.data.targetFolderId);
+    res.json({ data: toPublic(file) });
+  }
+
   async remove(req: Request, res: Response): Promise<void> {
     const id = parseUuid(req.params['id']);
     await this.service.remove(id, req.user!.id);

@@ -44,11 +44,12 @@ No hay endpoint de registro ni gestión de usuarios desde la API.
 ### Folders (`/api/folders`) ✅ Implementado
 | Método | Ruta | Descripción | Auth requerida |
 |--------|------|-------------|----------------|
-| GET | `/` | Listar carpetas raíz del usuario | Sí |
+| GET | `/` | Listar carpetas de primer nivel del usuario | Sí |
 | GET | `/:id` | Contenido de carpeta (subcarpetas + archivos) | Sí |
 | GET | `/:id/breadcrumb` | Ruta jerárquica desde raíz hasta la carpeta | Sí |
 | POST | `/` | Crear carpeta | Sí |
 | PATCH | `/:id` | Renombrar carpeta | Sí |
+| PATCH | `/:id/move` | Mover carpeta a otra carpeta (o raíz) | Sí |
 | DELETE | `/:id` | Eliminar carpeta (`?recursive=true` para no vacías) | Sí |
 
 ### Files (`/api/files`) ✅ Implementado
@@ -59,6 +60,7 @@ No hay endpoint de registro ni gestión de usuarios desde la API.
 | GET | `/:id` | Metadata de un archivo | Sí |
 | GET | `/:id/download` | Descargar archivo (soporta Range requests) | Sí |
 | PATCH | `/:id` | Renombrar archivo | Sí |
+| PATCH | `/:id/move` | Mover archivo a otra carpeta | Sí |
 | DELETE | `/:id` | Eliminar archivo de disco y BD | Sí |
 | POST | `/:id/share` | Crear token de compartir (1-uso, 8h) | Sí |
 | GET | `/:id/share` | Listar tokens activos del archivo | Sí |
