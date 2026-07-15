@@ -276,7 +276,7 @@ List root-level folders for the authenticated user.
 ```json
 {
   "data": [
-    { "id": "uuid", "name": "Documents", "parentId": null, "createdAt": "2025-01-01T00:00:00Z" }
+    { "id": "uuid", "name": "Documents", "parentId": null, "hasChildren": true, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" }
   ]
 }
 ```
@@ -295,12 +295,12 @@ Get folder contents (subfolders + files).
 ```json
 {
   "data": {
-    "folder": { "id": "uuid", "name": "Documents", "parentId": null, "createdAt": "..." },
+    "folder": { "id": "uuid", "name": "Documents", "parentId": null, "hasChildren": true, "createdAt": "...", "updatedAt": "..." },
     "subfolders": [
-      { "id": "uuid", "name": "Work", "parentId": "uuid", "createdAt": "..." }
+      { "id": "uuid", "name": "Work", "parentId": "uuid", "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
     ],
     "files": [
-      { "id": "uuid", "name": "report.pdf", "mimeType": "application/pdf", "size": 204800, "checksum": "abc123", "folderId": "uuid", "uploadedBy": "uuid", "createdAt": "...", "deletedAt": null }
+      { "id": "uuid", "name": "report.pdf", "mimeType": "application/pdf", "size": 204800, "createdAt": "..." }
     ]
   }
 }
@@ -322,12 +322,13 @@ Get the full path from root to the given folder.
 ```json
 {
   "data": [
-    { "id": "uuid", "name": "Root", "parentId": null },
-    { "id": "uuid", "name": "Documents", "parentId": "uuid" },
-    { "id": "uuid", "name": "Work", "parentId": "uuid" }
+    { "id": "uuid", "name": "Documents" },
+    { "id": "uuid", "name": "Work" }
   ]
 }
 ```
+
+The array goes from top-level folder down to the requested folder. "Mi Drive" is a frontend-only label — it does not appear in this response.
 
 **Errors:** `FOLDER_NOT_FOUND` (404), `FORBIDDEN` (403), `VALIDATION_ERROR` (400)
 
@@ -352,7 +353,7 @@ Create a new folder.
 **Response `201`:**
 ```json
 {
-  "data": { "id": "uuid", "name": "New Folder", "parentId": null, "createdAt": "..." }
+  "data": { "id": "uuid", "name": "New Folder", "parentId": null, "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
 }
 ```
 
@@ -376,7 +377,33 @@ Rename a folder.
 **Response `200`:**
 ```json
 {
-  "data": { "id": "uuid", "name": "Renamed Folder", "parentId": null, "createdAt": "..." }
+  "data": { "id": "uuid", "name": "Renamed Folder", "parentId": null, "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
+}
+```
+
+**Errors:** `FOLDER_NOT_FOUND` (404), `FORBIDDEN` (403), `CONFLICT` (409), `VALIDATION_ERROR` (400)
+
+---
+
+#### `PATCH /api/folders/:id/move`
+
+Move a folder to a different parent (or to root).
+
+**Headers:** `Authorization: Bearer <accessToken>`, `Content-Type: application/json`
+
+**Params:** `id` — folder UUID
+
+**Body:**
+```json
+{ "targetParentId": "uuid-or-null" }
+```
+
+`targetParentId: null` moves the folder to root level.
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "name": "Documents", "parentId": "uuid", "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
 }
 ```
 
@@ -397,7 +424,9 @@ Delete a folder.
 
 **Response `204`:** no body
 
-**Errors:** `FOLDER_NOT_FOUND` (404), `FORBIDDEN` (403), `VALIDATION_ERROR` (400)
+**Errors:** `FOLDER_NOT_FOUND` (404), `FORBIDDEN` (403), `CONFLICT` (409), `VALIDATION_ERROR` (400)
+
+> `CONFLICT` is returned when the folder has subfolders and `?recursive=true` was not passed.
 
 ---
 
@@ -456,6 +485,25 @@ List files in a folder.
 ```
 
 **Errors:** `VALIDATION_ERROR` (400)
+
+---
+
+#### `GET /api/files/shares`
+
+List all active share tokens created by the authenticated user across all files.
+
+**Headers:** `Authorization: Bearer <accessToken>`
+
+**Response `200`:**
+```json
+{
+  "data": [
+    { "id": "uuid", "fileId": "uuid", "fileName": "informe.pdf", "expiresAt": "2025-01-01T08:00:00Z", "createdAt": "2025-01-01T00:00:00Z" }
+  ]
+}
+```
+
+**Errors:** none beyond `UNAUTHORIZED` (401)
 
 ---
 
@@ -518,6 +566,54 @@ Content-Length: 1024
 ```
 
 **Errors:** `FILE_NOT_FOUND` (404), `FORBIDDEN` (403), `STREAM_ERROR` (500), `VALIDATION_ERROR` (400)
+
+---
+
+#### `PATCH /api/files/:id`
+
+Rename a file.
+
+**Headers:** `Authorization: Bearer <accessToken>`, `Content-Type: application/json`
+
+**Params:** `id` — file UUID
+
+**Body:**
+```json
+{ "name": "new-name.pdf" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "name": "new-name.pdf", "mimeType": "application/pdf", "size": 204800, "checksum": "sha256hex", "folderId": "uuid", "uploadedBy": "uuid", "createdAt": "...", "deletedAt": null }
+}
+```
+
+**Errors:** `FILE_NOT_FOUND` (404), `FORBIDDEN` (403), `CONFLICT` (409), `VALIDATION_ERROR` (400)
+
+---
+
+#### `PATCH /api/files/:id/move`
+
+Move a file to a different folder.
+
+**Headers:** `Authorization: Bearer <accessToken>`, `Content-Type: application/json`
+
+**Params:** `id` — file UUID
+
+**Body:**
+```json
+{ "targetFolderId": "uuid" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "name": "report.pdf", "mimeType": "application/pdf", "size": 204800, "checksum": "sha256hex", "folderId": "uuid", "uploadedBy": "uuid", "createdAt": "...", "deletedAt": null }
+}
+```
+
+**Errors:** `FILE_NOT_FOUND` (404), `FORBIDDEN` (403), `FOLDER_NOT_FOUND` (404), `CONFLICT` (409), `VALIDATION_ERROR` (400)
 
 ---
 
