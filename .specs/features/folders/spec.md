@@ -55,6 +55,8 @@ Devuelve todas las carpetas del usuario con `parentId: null`. Array vacío si no
 }
 ```
 Ordenado de raíz a carpeta actual. Implementado con CTE recursiva en PostgreSQL.
+- El primer elemento es la carpeta de primer nivel (la de mayor jerarquía que tiene `parentId: null`)
+- "Mi Drive" no aparece en el resultado — es una etiqueta estática del frontend, no una carpeta real
 
 ### POST `/` — Crear carpeta
 Request:
@@ -89,7 +91,7 @@ Response `200`:
 
 ### DELETE `/:id` — Eliminar
 Query param opcional: `?recursive=true`
-- Sin `recursive` o `recursive=false`: falla si la carpeta tiene archivos o subcarpetas
+- Sin `recursive` o `recursive=false`: falla si la carpeta tiene **subcarpetas** (no verifica archivos directos — si solo tiene archivos, los elimina junto con la carpeta)
 - Con `recursive=true`: elimina todo el subárbol (archivos de disco + BD en cascada)
 
 Response: `204 No Content`

@@ -44,7 +44,7 @@ Response `201`:
 > `storagePath` nunca aparece en ninguna respuesta (`FilePublicDto = Omit<FileRecord, 'storagePath'>`).
 
 ### GET `/` — Listar archivos
-Query param: `folderId` (UUID opcional — null lista archivos sin carpeta)
+Query param: `folderId` (UUID **obligatorio**)
 
 Response `200`:
 ```json
@@ -173,6 +173,24 @@ Elimina el token de la BD.
 
 Response: `204 No Content`
 
+### GET `/shares` — Listar todos los tokens activos del usuario
+Devuelve todos los tokens activos (no usados, no expirados) de todos los archivos del usuario.
+
+Response `200`:
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "fileId": "uuid",
+      "fileName": "informe.pdf",
+      "expiresAt": "2026-06-15T22:00:00.000Z",
+      "createdAt": "2026-06-15T14:00:00.000Z"
+    }
+  ]
+}
+```
+
 ---
 
 ## Reglas de negocio
@@ -200,7 +218,7 @@ Gestionada por `multer diskStorage`. El backend es el único que conoce esta rut
 | Código | Status | Cuándo |
 |--------|--------|--------|
 | `FILE_NOT_FOUND` | 404 | Archivo no existe |
-| `FOLDER_NOT_FOUND` | 404 | Carpeta destino no existe en upload |
+| `FOLDER_NOT_FOUND` | 404 | Carpeta destino no existe en upload o en move |
 | `FORBIDDEN` | 403 | El archivo o carpeta no pertenece al usuario |
 | `CONFLICT` | 409 | Nombre duplicado en la misma carpeta |
 | `FILE_TOO_LARGE` | 413 | Supera `MAX_FILE_SIZE_MB` |
