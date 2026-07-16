@@ -7,8 +7,8 @@ import { env } from './env';
 const storage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const userId = (req as Express.Request).user!.id;
-    const folderId = req.query['folderId'] as string;
-    const dest = `${env.storagePath}/${userId}/${folderId}`;
+    const folderId = req.query['folderId'] as string | undefined;
+    const dest = `${env.storagePath}/${userId}/${folderId ?? 'root'}`;
     mkdirSync(dest, { recursive: true });
     cb(null, dest);
   },

@@ -29,12 +29,13 @@ export class FilesController {
       return;
     }
 
+    const folderId = req.query['folderId'];
     const record = await this.service.upload(req.user!.id, {
       name: file.originalname,
       mimeType: file.mimetype,
       size: file.size,
       storagePath: file.path,
-      folderId: req.query['folderId'] as string,
+      folderId: typeof folderId === 'string' ? folderId : null,
     });
 
     res.status(201).json({ data: toPublic(record) });
@@ -141,7 +142,7 @@ export class FilesController {
 
   async move(req: Request, res: Response): Promise<void> {
     const id = parseUuid(req.params['id']);
-    const parsed = z.object({ targetFolderId: z.uuid() }).safeParse(req.body);
+    const parsed = z.object({ targetFolderId: z.uuid().nullable() }).safeParse(req.body);
     if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? 'Validation error');
     const file = await this.service.move(id, req.user!.id, parsed.data.targetFolderId);
     res.json({ data: toPublic(file) });

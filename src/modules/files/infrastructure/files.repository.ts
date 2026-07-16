@@ -91,7 +91,7 @@ export class FilesRepository {
     return toFileRecord(result.rows[0]!);
   }
 
-  async move(id: string, targetFolderId: string): Promise<FileRecord> {
+  async move(id: string, targetFolderId: string | null): Promise<FileRecord> {
     const result = await this.db.query<FileRow>(
       'UPDATE files SET folder_id = $1 WHERE id = $2 AND deleted_at IS NULL RETURNING *',
       [targetFolderId, id],

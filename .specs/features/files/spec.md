@@ -21,9 +21,11 @@
 
 ## Contratos
 
-### POST `/upload?folderId=<uuid>` — Subir archivo
+### POST `/upload` — Subir archivo
 Request: `multipart/form-data`, campo `file`
-Query param `folderId`: UUID de la carpeta destino (obligatorio)
+Query param `folderId`: UUID de la carpeta destino (opcional — si se omite, el archivo queda en la raíz)
+
+> Ruta física en disco: `{STORAGE_PATH}/{userId}/{folderId}/` cuando hay carpeta; `{STORAGE_PATH}/{userId}/root/` cuando se sube a raíz.
 
 Response `201`:
 ```json
@@ -44,7 +46,7 @@ Response `201`:
 > `storagePath` nunca aparece en ninguna respuesta (`FilePublicDto = Omit<FileRecord, 'storagePath'>`).
 
 ### GET `/` — Listar archivos
-Query param: `folderId` (UUID **obligatorio**)
+Query param: `folderId` (UUID, opcional — si se omite devuelve los archivos en raíz del usuario)
 
 Response `200`:
 ```json
@@ -112,7 +114,7 @@ Response `200`:
 - Valida que no exista ya un archivo con el mismo nombre en la misma carpeta (`409 CONFLICT`)
 
 ### PATCH `/:id/move` — Mover archivo
-Body: `{ "targetFolderId": "uuid" }`
+Body: `{ "targetFolderId": "uuid" }` o `{ "targetFolderId": null }` para mover a raíz
 
 Response `200`:
 ```json
@@ -131,8 +133,10 @@ Response `200`:
 }
 ```
 - Solo actualiza `folder_id` en BD — el archivo físico no se mueve (`storage_path` permanece igual)
-- Si `targetFolderId` es la misma carpeta actual → devuelve el archivo sin cambios (no-op)
-- Valida que no exista un archivo con el mismo nombre en la carpeta destino (`409 CONFLICT`)
+- `targetFolderId: null` mueve el archivo a la raíz (`folder_id = NULL`)
+- Si `targetFolderId` es la misma ubicación actual (incluido null = null) → no-op, devuelve el archivo sin cambios
+- Valida que no exista un archivo con el mismo nombre en el destino (`409 CONFLICT`)
+- `FOLDER_NOT_FOUND` solo aplica cuando `targetFolderId` no es null
 
 ### DELETE `/:id` — Eliminar
 Elimina el archivo del disco y de la BD (hard delete).

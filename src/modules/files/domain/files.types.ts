@@ -16,7 +16,7 @@ export interface UploadFileDto {
   mimeType: string;
   size: number;
   storagePath: string;
-  folderId: string;
+  folderId: string | null;
 }
 
 export interface FileListFilter {

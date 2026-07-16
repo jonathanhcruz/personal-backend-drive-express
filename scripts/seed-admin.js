@@ -34,18 +34,6 @@ async function main() {
     const userId = result.rows[0].id;
     console.log(`Admin user created: ${email}`);
 
-    const folderExists = await pool.query(
-      'SELECT id FROM folders WHERE owner_id = $1 AND parent_id IS NULL',
-      [userId],
-    );
-
-    if (folderExists.rows.length === 0) {
-      await pool.query(
-        `INSERT INTO folders (name, parent_id, owner_id) VALUES ('root', NULL, $1)`,
-        [userId],
-      );
-      console.log('Root folder created for admin.');
-    }
   } finally {
     await pool.end();
   }
