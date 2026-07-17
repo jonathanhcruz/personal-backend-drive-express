@@ -5,9 +5,18 @@ import type {
   Folder,
   FolderContents,
   BreadcrumbItem,
+  ZipEntry,
   CreateFolderDto,
   UpdateFolderDto,
 } from './folders.types';
+
+function sanitizeSegment(segment: string): string {
+  return segment.replace(/[/\\\0]/g, '_').replace(/^\.+$/, '_') || '_';
+}
+
+function sanitizeZipPath(zipPath: string): string {
+  return zipPath.split('/').map(sanitizeSegment).join('/');
+}
 
 export class FoldersService {
   constructor(
@@ -77,6 +86,15 @@ export class FoldersService {
     const existing = await this.repo.findByNameAndParent(folder.name, targetParentId, ownerId);
     if (existing) throw new ConflictError(`A folder named "${folder.name}" already exists in the target location`);
     return this.repo.move(id, targetParentId);
+  }
+
+  async downloadAsZip(folderId: string, ownerId: string): Promise<{ folderName: string; entries: ZipEntry[] }> {
+    const folder = await this.repo.findById(folderId);
+    if (!folder) throw new NotFoundError('Folder not found');
+    if (folder.ownerId !== ownerId) throw new ForbiddenError();
+    const raw = await this.repo.getSubtreeFiles(folderId, ownerId);
+    const entries = raw.map((e) => ({ ...e, zipPath: sanitizeZipPath(e.zipPath) }));
+    return { folderName: folder.name, entries };
   }
 
   async remove(id: string, ownerId: string, recursive: boolean): Promise<void> {

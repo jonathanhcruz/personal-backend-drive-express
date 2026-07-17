@@ -29,6 +29,13 @@ export interface BreadcrumbItem {
 
 export type FolderPublicDto = Omit<Folder, 'ownerId'>;
 
+export interface ZipEntry {
+  id: string;
+  fileName: string;
+  storagePath: string;
+  zipPath: string;
+}
+
 export interface CreateFolderDto {
   name: string;
   parentId: string | null;

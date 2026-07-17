@@ -1,6 +1,7 @@
 /// <reference path="../../../shared/types/express.d.ts" />
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import archiver from 'archiver';
 import type { FoldersService } from '../domain/folders.service';
 import type { Folder, FolderContents, FolderPublicDto } from '../domain/folders.types';
 import { ValidationError } from '../../../shared/errors/http.errors';
@@ -76,6 +77,39 @@ export class FoldersController {
     if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? 'Validation error');
     const folder = await this.service.move(id, req.user!.id, parsed.data.targetParentId);
     res.json({ data: toPublic(folder) });
+  }
+
+  async downloadAsZip(req: Request, res: Response): Promise<void> {
+    const id = parseUuid(req.params['id']);
+    const userId = req.user!.id;
+
+    const { folderName, entries } = await this.service.downloadAsZip(id, userId);
+
+    const safeName = encodeURIComponent(folderName);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeName}.zip`);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+
+    archive.on('error', (err: Error) => {
+      console.error('[zip-stream]', err);
+      archive.abort();
+      if (!res.headersSent) {
+        res.status(500).json({ error: { code: 'STREAM_ERROR' } });
+      } else {
+        res.destroy();
+      }
+    });
+
+    req.on('close', () => archive.abort());
+
+    archive.pipe(res);
+
+    for (const entry of entries) {
+      archive.file(entry.storagePath, { name: entry.zipPath });
+    }
+
+    await archive.finalize();
   }
 
   async remove(req: Request, res: Response): Promise<void> {

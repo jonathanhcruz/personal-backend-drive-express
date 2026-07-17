@@ -4,6 +4,7 @@ import type {
   Folder,
   FolderContents,
   BreadcrumbItem,
+  ZipEntry,
   CreateFolderDto,
   UpdateFolderDto,
 } from '../domain/folders.types';
@@ -171,6 +172,40 @@ export class FoldersRepository {
       [folderId],
     );
     return result.rows.map((r) => r.id);
+  }
+
+  async getSubtreeFiles(folderId: string, ownerId: string): Promise<ZipEntry[]> {
+    type Row = { id: string; file_name: string; storage_path: string; zip_path: string };
+    const result = await this.db.query<Row>(
+      `WITH RECURSIVE folder_tree AS (
+        SELECT id, name, parent_id, name AS zip_prefix
+        FROM folders
+        WHERE id = $1 AND owner_id = $2
+
+        UNION ALL
+
+        SELECT f.id, f.name, f.parent_id, ft.zip_prefix || '/' || f.name
+        FROM folders f
+        JOIN folder_tree ft ON f.parent_id = ft.id
+        WHERE f.owner_id = $2
+      )
+      SELECT
+        fi.id,
+        fi.name         AS file_name,
+        fi.storage_path AS storage_path,
+        ft.zip_prefix || '/' || fi.name AS zip_path
+      FROM folder_tree ft
+      JOIN files fi ON fi.folder_id = ft.id
+                   AND fi.uploaded_by = $2
+                   AND fi.deleted_at IS NULL`,
+      [folderId, ownerId],
+    );
+    return result.rows.map((r) => ({
+      id: r.id,
+      fileName: r.file_name,
+      storagePath: r.storage_path,
+      zipPath: r.zip_path,
+    }));
   }
 
   async remove(id: string): Promise<void> {

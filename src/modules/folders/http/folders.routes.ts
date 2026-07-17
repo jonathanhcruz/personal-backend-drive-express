@@ -17,6 +17,7 @@ router.use(authMiddleware);
 
 router.get('/', (req, res, next) => ctrl.listRoot(req, res).catch(next));
 router.get('/:id/breadcrumb', (req, res, next) => ctrl.breadcrumb(req, res).catch(next));
+router.get('/:id/download', (req, res, next) => ctrl.downloadAsZip(req, res).catch(next));
 router.get('/:id', (req, res, next) => ctrl.getContents(req, res).catch(next));
 router.post('/', (req, res, next) => ctrl.create(req, res).catch(next));
 router.patch('/:id/move', (req, res, next) => ctrl.move(req, res).catch(next));
