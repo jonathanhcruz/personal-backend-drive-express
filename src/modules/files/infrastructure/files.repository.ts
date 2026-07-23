@@ -60,10 +60,10 @@ export class FilesRepository {
     return result.rows[0] ? toFileRecord(result.rows[0]) : null;
   }
 
-  async findByFolder(folderId: string | null, uploadedBy: string): Promise<FileRecord[]> {
+  async findByFolder(folderId: string, uploadedBy: string): Promise<FileRecord[]> {
     const result = await this.db.query<FileRow>(
       `SELECT * FROM files
-       WHERE folder_id IS NOT DISTINCT FROM $1 AND uploaded_by = $2 AND deleted_at IS NULL
+       WHERE folder_id = $1 AND uploaded_by = $2 AND deleted_at IS NULL
        ORDER BY name`,
       [folderId, uploadedBy],
     );
@@ -72,12 +72,12 @@ export class FilesRepository {
 
   async findByNameAndFolder(
     name: string,
-    folderId: string | null,
+    folderId: string,
     uploadedBy: string,
   ): Promise<FileRecord | null> {
     const result = await this.db.query<FileRow>(
       `SELECT * FROM files
-       WHERE name = $1 AND folder_id IS NOT DISTINCT FROM $2 AND uploaded_by = $3 AND deleted_at IS NULL`,
+       WHERE name = $1 AND folder_id = $2 AND uploaded_by = $3 AND deleted_at IS NULL`,
       [name, folderId, uploadedBy],
     );
     return result.rows[0] ? toFileRecord(result.rows[0]) : null;
@@ -91,7 +91,7 @@ export class FilesRepository {
     return toFileRecord(result.rows[0]!);
   }
 
-  async move(id: string, targetFolderId: string | null): Promise<FileRecord> {
+  async move(id: string, targetFolderId: string): Promise<FileRecord> {
     const result = await this.db.query<FileRow>(
       'UPDATE files SET folder_id = $1 WHERE id = $2 AND deleted_at IS NULL RETURNING *',
       [targetFolderId, id],

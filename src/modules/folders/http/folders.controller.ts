@@ -40,8 +40,8 @@ export class FoldersController {
   constructor(private readonly service: FoldersService) {}
 
   async listRoot(req: Request, res: Response): Promise<void> {
-    const folders = await this.service.listRoot(req.user!.id);
-    res.json({ data: folders.map(toPublic) });
+    const { subfolders, files } = await this.service.getRootContents(req.user!.id);
+    res.json({ data: { subfolders: subfolders.map(toPublic), files } });
   }
 
   async getContents(req: Request, res: Response): Promise<void> {

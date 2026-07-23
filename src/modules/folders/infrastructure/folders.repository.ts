@@ -34,14 +34,16 @@ function toFolder(row: FolderRow): Folder {
 export class FoldersRepository {
   constructor(private readonly db: Pool = defaultPool) {}
 
-  async findRootByOwner(ownerId: string): Promise<Folder[]> {
+  async findRootFolder(ownerId: string): Promise<Folder> {
     const result = await this.db.query<FolderRow>(
       `SELECT id, name, parent_id, owner_id, created_at, updated_at,
         EXISTS(SELECT 1 FROM folders sub WHERE sub.parent_id = folders.id) AS has_children
-       FROM folders WHERE parent_id IS NULL AND owner_id = $1 ORDER BY name`,
+       FROM folders WHERE owner_id = $1 AND parent_id IS NULL`,
       [ownerId],
     );
-    return result.rows.map(toFolder);
+    const row = result.rows[0];
+    if (!row) throw new Error(`Root folder not found for user ${ownerId}`);
+    return toFolder(row);
   }
 
   async findById(id: string): Promise<Folder | null> {
@@ -111,7 +113,9 @@ export class FoldersRepository {
         FROM folders f
         INNER JOIN breadcrumb b ON f.id = b.parent_id
       )
-      SELECT id, name FROM breadcrumb ORDER BY depth DESC`,
+      SELECT id, name FROM breadcrumb
+      WHERE parent_id IS NOT NULL
+      ORDER BY depth DESC`,
       [folderId],
     );
     return result.rows;
