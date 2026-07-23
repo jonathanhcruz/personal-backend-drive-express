@@ -44,9 +44,10 @@ No hay endpoint de registro ni gestión de usuarios desde la API.
 ### Folders (`/api/folders`) ✅ Implementado
 | Método | Ruta | Descripción | Auth requerida |
 |--------|------|-------------|----------------|
-| GET | `/` | Listar carpetas de primer nivel del usuario | Sí |
+| GET | `/` | Contenido raíz del usuario (subcarpetas + archivos) | Sí |
 | GET | `/:id` | Contenido de carpeta (subcarpetas + archivos) | Sí |
 | GET | `/:id/breadcrumb` | Ruta jerárquica desde raíz hasta la carpeta | Sí |
+| GET | `/:id/download` | Descargar carpeta completa como ZIP | Sí |
 | POST | `/` | Crear carpeta | Sí |
 | PATCH | `/:id` | Renombrar carpeta | Sí |
 | PATCH | `/:id/move` | Mover carpeta a otra carpeta (o raíz) | Sí |

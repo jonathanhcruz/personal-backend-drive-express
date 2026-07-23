@@ -10,7 +10,7 @@ _Nada pendiente._
 - [x] `ON DELETE CASCADE` en `parent_id` — subárbol eliminado en cascada
 
 ### Fase 2 — CRUD endpoints
-- [x] `FoldersRepository` — findById, findRootByOwner, findChildrenWithFiles, create, rename, delete
+- [x] `FoldersRepository` — findById, findRootFolder, getContents, getBreadcrumb, create, rename, delete
 - [x] `FoldersService` — ownership check, delete recursivo (disco + BD)
 - [x] `FoldersController` — validación zod, contrato `{ data }` / `204`
 - [x] `GET /api/folders/` — listar raíz

@@ -4,9 +4,10 @@
 
 | Método | Ruta | Descripción | Auth |
 |--------|------|-------------|------|
-| GET | `/` | Listar carpetas de primer nivel del usuario | Sí |
+| GET | `/` | Contenido de la carpeta raíz del usuario (subcarpetas + archivos) | Sí |
 | GET | `/:id` | Contenido de una carpeta (subcarpetas + archivos) | Sí |
 | GET | `/:id/breadcrumb` | Ruta jerárquica desde raíz hasta la carpeta | Sí |
+| GET | `/:id/download` | Descargar carpeta completa como ZIP | Sí |
 | POST | `/` | Crear carpeta | Sí |
 | PATCH | `/:id` | Renombrar carpeta | Sí |
 | PATCH | `/:id/move` | Mover carpeta a otra carpeta (o raíz) | Sí |
@@ -16,15 +17,20 @@
 
 ## Contratos
 
-### GET `/` — Listar carpetas de primer nivel
-Devuelve todas las carpetas del usuario con `parentId: null`. Array vacío si no tiene ninguna (no es 404).
+### GET `/` — Contenido raíz
+Devuelve las subcarpetas y archivos directamente anclados a la carpeta raíz del usuario. Arrays vacíos si no hay contenido (no es 404).
 
 ```json
 {
-  "data": [
-    { "id": "uuid", "name": "Documentos", "parentId": null, "hasChildren": true, "createdAt": "...", "updatedAt": "..." },
-    { "id": "uuid", "name": "Trabajo", "parentId": null, "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
-  ]
+  "data": {
+    "subfolders": [
+      { "id": "uuid", "name": "Documentos", "parentId": "uuid-root", "hasChildren": true, "createdAt": "...", "updatedAt": "..." },
+      { "id": "uuid", "name": "Trabajo", "parentId": "uuid-root", "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
+    ],
+    "files": [
+      { "id": "uuid", "name": "notas.txt", "mimeType": "text/plain", "size": 1024, "createdAt": "..." }
+    ]
+  }
 }
 ```
 
@@ -32,7 +38,7 @@ Devuelve todas las carpetas del usuario con `parentId: null`. Array vacío si no
 ```json
 {
   "data": {
-    "folder": { "id": "uuid", "name": "Documentos", "parentId": null, "hasChildren": true, "createdAt": "...", "updatedAt": "..." },
+    "folder": { "id": "uuid", "name": "Documentos", "parentId": "uuid-root", "hasChildren": true, "createdAt": "...", "updatedAt": "..." },
     "subfolders": [
       { "id": "uuid", "name": "Trabajo", "parentId": "uuid", "hasChildren": false, "createdAt": "...", "updatedAt": "..." }
     ],
@@ -55,8 +61,9 @@ Devuelve todas las carpetas del usuario con `parentId: null`. Array vacío si no
 }
 ```
 Ordenado de raíz a carpeta actual. Implementado con CTE recursiva en PostgreSQL.
-- El primer elemento es la carpeta de primer nivel (la de mayor jerarquía que tiene `parentId: null`)
-- "Mi Drive" no aparece en el resultado — es una etiqueta estática del frontend, no una carpeta real
+- La carpeta raíz (`__root__`) **nunca aparece** en el resultado — se filtra en la query
+- El primer elemento es la carpeta de primer nivel visible (hija directa de root)
+- "Mi Drive" no aparece en el resultado — es una etiqueta estática del frontend
 
 ### POST `/` — Crear carpeta
 Request:
@@ -102,9 +109,11 @@ Response: `204 No Content`
 
 - `ownerId` nunca sale en ninguna respuesta (usa `FolderPublicDto = Omit<Folder, 'ownerId'>`)
 - Toda operación valida `folder.ownerId === userId` autenticado
-- `parentId: null` → carpeta de primer nivel (nivel superior virtual, sin contenedor físico)
-- No existe carpeta raíz física en la BD — el nivel raíz es implícito (`parent_id IS NULL`)
-- Múltiples carpetas de primer nivel por usuario están permitidas
+- Cada usuario tiene exactamente **una carpeta raíz** (`__root__`, `parent_id IS NULL`) creada automáticamente por trigger al registrarse
+- La carpeta raíz es **completamente invisible**: nunca se devuelve como entidad en ninguna respuesta; acceder a `GET /:id` con el UUID de root devuelve `404`
+- No se puede renombrar, mover ni eliminar la carpeta raíz
+- `parentId: null` en el input de crear/mover → se interpreta como "colocar en root" (el backend resuelve al UUID real)
+- Las carpetas de primer nivel visible tienen `parentId = uuid-root` (no null)
 - `ON DELETE CASCADE` en BD elimina subcarpetas automáticamente
 - Delete recursivo: borra archivos del disco uno a uno **antes** de borrar en BD
 

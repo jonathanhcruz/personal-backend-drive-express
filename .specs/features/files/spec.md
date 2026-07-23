@@ -25,7 +25,7 @@
 Request: `multipart/form-data`, campo `file`
 Query param `folderId`: UUID de la carpeta destino (opcional — si se omite, el archivo queda en la raíz)
 
-> Ruta física en disco: `{STORAGE_PATH}/{userId}/{folderId}/` cuando hay carpeta; `{STORAGE_PATH}/{userId}/root/` cuando se sube a raíz.
+> Ruta física en disco: `{STORAGE_PATH}/{userId}/{folderId}/` cuando hay carpeta; `{STORAGE_PATH}/{userId}/{root-uuid}/` cuando se sube a raíz. El UUID de root lo resuelve el backend — el cliente nunca necesita conocerlo.
 
 Response `201`:
 ```json
@@ -133,7 +133,7 @@ Response `200`:
 }
 ```
 - Solo actualiza `folder_id` en BD — el archivo físico no se mueve (`storage_path` permanece igual)
-- `targetFolderId: null` mueve el archivo a la raíz (`folder_id = NULL`)
+- `targetFolderId: null` mueve el archivo a root — el backend resuelve el UUID de la carpeta raíz del usuario
 - Si `targetFolderId` es la misma ubicación actual (incluido null = null) → no-op, devuelve el archivo sin cambios
 - Valida que no exista un archivo con el mismo nombre en el destino (`409 CONFLICT`)
 - `FOLDER_NOT_FOUND` solo aplica cuando `targetFolderId` no es null
